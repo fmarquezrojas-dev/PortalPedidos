@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Portal completo",
+    "Projects": [
+      {
+        "Path": "src\\ErpSimulator.Api\\ErpSimulator.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Portal.Web\\Portal.Web.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

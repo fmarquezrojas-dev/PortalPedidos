@@ -1,0 +1,8 @@
+@{ ViewData["Title"] = "Acceso restringido"; }
+<div class="status-page">
+    <div class="status-mark"><partial name="_Icon" model='@("lock")' /></div>
+    <p class="eyebrow">ACCESO RESTRINGIDO · 403</p><h1>Esta sección requiere otro permiso</h1>
+    <p class="text-muted mt-3 mb-4">Tu cuenta no tiene acceso a esta sección. Si la necesitas para tu trabajo, solicita la revisión de tus permisos al administrador.</p>
+    @if (User.Identity?.IsAuthenticated == true) { <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver a mi espacio</a> }
+    else { <a class="btn btn-primary" asp-controller="Account" asp-action="Login">Iniciar sesión</a> }
+</div>

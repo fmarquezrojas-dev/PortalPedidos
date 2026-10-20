@@ -1,0 +1,393 @@
+@model Portal.Application.DTOs.Customers.CustomerPortfolioListPageDto
+
+@using System.Collections.Generic
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using Portal.Application.DTOs.Customers
+@using Portal.Web.Formatting
+
+@{
+    ViewData["Title"] = "Cartera comercial";
+
+    var customerStates = new List<SelectListItem>
+    {
+        new SelectListItem { Value = "", Text = "Todos" },
+        new SelectListItem { Value = "true", Text = "Activos" },
+        new SelectListItem { Value = "false", Text = "Inactivos" }
+    };
+
+    var assignmentStates = new List<SelectListItem>
+    {
+        new SelectListItem
+        {
+            Value = "",
+            Text = "Todas"
+        },
+        new SelectListItem
+        {
+            Value = CustomerPortfolioAssignmentStatus.Unassigned.ToString(),
+            Text = "Sin asignar"
+        },
+        new SelectListItem
+        {
+            Value = CustomerPortfolioAssignmentStatus.Operational.ToString(),
+            Text = "Vigentes"
+        },
+        new SelectListItem
+        {
+            Value = CustomerPortfolioAssignmentStatus.RequiresReview.ToString(),
+            Text = "Requieren revisión"
+        }
+    };
+
+    var previousRoute = new Dictionary<string, string>
+    {
+        ["Filters.Search"] = Model.Filters.Search ?? "",
+        ["Filters.SellerSearch"] = Model.Filters.SellerSearch ?? "",
+        ["Filters.TeamSearch"] = Model.Filters.TeamSearch ?? "",
+        ["Filters.CustomerIsActive"] =
+            Model.Filters.CustomerIsActive?.ToString() ?? "",
+        ["Filters.AssignmentStatus"] =
+            Model.Filters.AssignmentStatus?.ToString() ?? "",
+        ["Filters.PageNumber"] = (Model.PageNumber - 1).ToString()
+    };
+
+    var nextRoute = new Dictionary<string, string>(previousRoute)
+    {
+        ["Filters.PageNumber"] = (Model.PageNumber + 1).ToString()
+    };
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between
+        align-items-center gap-3 mb-4">
+        <div>
+            <p class="section-kicker">GESTIÓN DE CARTERA</p>
+            <h1 class="h3 mb-2">Cartera comercial</h1>
+
+            <p class="text-muted mb-0">
+                Consulta responsables, equipos y asignaciones
+                que requieren revisión.
+            </p>
+        </div>
+
+        <a asp-controller="Customers"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Volver al directorio
+        </a>
+    </div>
+
+    <div class="alert alert-info" role="status">
+        La asignación comercial y la disponibilidad para pedidos
+        se muestran por separado. Cambiar un responsable no transfiere
+        la propiedad de los pedidos existentes.
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-controller="CustomerPortfolio"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-3 mb-4">
+
+                <div class="col-lg-4">
+                    <label asp-for="Filters.Search" class="form-label">
+                        Cliente
+                    </label>
+
+                    <input asp-for="Filters.Search"
+                           maxlength="100"
+                           class="form-control"
+                           placeholder="Código ERP o nombre" />
+                </div>
+
+                <div class="col-lg-4">
+                    <label asp-for="Filters.SellerSearch" class="form-label">
+                        Responsable
+                    </label>
+
+                    <input asp-for="Filters.SellerSearch"
+                           maxlength="256"
+                           class="form-control"
+                           placeholder="Parte del correo del vendedor" />
+                </div>
+
+                <div class="col-lg-4">
+                    <label asp-for="Filters.TeamSearch" class="form-label">
+                        Equipo
+                    </label>
+
+                    <input asp-for="Filters.TeamSearch"
+                           maxlength="100"
+                           class="form-control"
+                           placeholder="Código o nombre del equipo" />
+                </div>
+
+                <div class="col-lg-4">
+                    <label asp-for="Filters.CustomerIsActive"
+                           class="form-label">
+                        Estado del cliente
+                    </label>
+
+                    <select asp-for="Filters.CustomerIsActive"
+                            asp-items="customerStates"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-lg-4">
+                    <label asp-for="Filters.AssignmentStatus"
+                           class="form-label">
+                        Situación de la asignación
+                    </label>
+
+                    <select asp-for="Filters.AssignmentStatus"
+                            asp-items="assignmentStates"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-lg-4 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        Buscar
+                    </button>
+
+                    <a asp-controller="CustomerPortfolio"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <span class="text-muted">
+                    Clientes encontrados: @Model.TotalCount
+                </span>
+
+                <span class="small text-muted">
+                    @Model.PageSize registros por página
+                </span>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="border rounded text-center p-5">
+                    <h2 class="h5">No hay clientes para mostrar</h2>
+
+                    <p class="text-muted mb-0">
+                        @(Model.HasFilters
+                            ? "Prueba con otros filtros."
+                            : "No hay clientes disponibles en el catálogo del portal.")
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <caption class="visually-hidden">
+                            Clientes, disponibilidad para pedidos
+                            y asignación comercial actual.
+                        </caption>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">Cliente</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Pedidos</th>
+                                <th scope="col">Responsable y equipo</th>
+                                <th scope="col">Asignación</th>
+                                <th scope="col">Asignado · Perú</th>
+                                <th scope="col" class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">
+                                            @item.CustomerCode
+                                        </div>
+
+                                        <div>@item.CustomerName</div>
+                                    </td>
+
+                                    <td>
+                                        @if (item.CustomerIsActive)
+                                        {
+                                            <span class="badge bg-success">
+                                                Activo
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                Inactivo
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @if (item.IsEligibleForOrders)
+                                        {
+                                            <span class="badge bg-success">
+                                                Habilitado
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                No habilitado
+                                            </span>
+
+                                            <div class="small text-muted mt-1">
+                                                @(string.IsNullOrWhiteSpace(
+                                                    item.EligibilityMessage)
+                                                    ? "Cliente no disponible para pedidos."
+                                                    : item.EligibilityMessage)
+                                            </div>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @if (item.AssignmentStatus ==
+                                             CustomerPortfolioAssignmentStatus.Unassigned)
+                                        {
+                                            <span class="text-muted">
+                                                Sin responsable
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-break">
+                                                @(string.IsNullOrWhiteSpace(item.SellerEmail)
+                                                    ? "Cuenta no disponible"
+                                                    : item.SellerEmail)
+                                            </div>
+
+                                            <div class="small text-muted">
+                                                @if (string.IsNullOrWhiteSpace(item.TeamCode) &&
+                                                     string.IsNullOrWhiteSpace(item.TeamName))
+                                                {
+                                                    <span>Equipo no disponible</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>
+                                                        @item.TeamCode — @item.TeamName
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @switch (item.AssignmentStatus)
+                                        {
+                                            case CustomerPortfolioAssignmentStatus.Unassigned:
+                                                <span class="badge bg-secondary">
+                                                    Sin asignar
+                                                </span>
+                                                break;
+
+                                            case CustomerPortfolioAssignmentStatus.Operational:
+                                                <span class="badge bg-success">
+                                                    Vigente
+                                                </span>
+                                                break;
+
+                                            case CustomerPortfolioAssignmentStatus.RequiresReview:
+                                                <span class="badge bg-warning text-dark">
+                                                    Requiere revisión
+                                                </span>
+
+                                                @if (item.ReviewReasons.Count > 0)
+                                                {
+                                                    <ul class="small text-muted ps-3 mt-2 mb-0">
+                                                        @foreach (var reason in item.ReviewReasons)
+                                                        {
+                                                            <li>@reason</li>
+                                                        }
+                                                    </ul>
+                                                }
+                                                break;
+
+                                            default:
+                                                <span class="badge bg-secondary">
+                                                    No determinado
+                                                </span>
+                                                break;
+                                        }
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @(item.AssignedAtUtc.HasValue
+                                            ? PortalDateTime.Format(item.AssignedAtUtc)
+                                            : "—")
+                                    </td>
+
+                                    <td class="text-end">
+                                        <a asp-controller="CustomerPortfolio"
+                                           asp-action="Details"
+                                           asp-route-id="@item.CustomerId"
+                                           class="btn btn-sm btn-outline-primary text-nowrap"
+                                           aria-label="@($"Ver ficha de {item.CustomerName}")">
+                                            Ver ficha
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap justify-content-between
+                align-items-center gap-3 mt-4">
+                <div class="text-muted">
+                    <div>
+                        Página @Model.PageNumber de @Model.TotalPages
+                    </div>
+
+                    @if (Model.Items.Count > 0)
+                    {
+                        <div class="small">
+                            Mostrando @Model.FirstItemNumber
+                            a @Model.LastItemNumber
+                            de @Model.TotalCount
+                        </div>
+                    }
+                </div>
+
+                <nav aria-label="Paginación de cartera comercial">
+                    <div class="d-flex gap-2">
+                        @if (Model.HasPreviousPage)
+                        {
+                            <a asp-controller="CustomerPortfolio"
+                               asp-action="Index"
+                               asp-all-route-data="previousRoute"
+                               class="btn btn-outline-primary"
+                               rel="prev">
+                                Anterior
+                            </a>
+                        }
+
+                        @if (Model.HasNextPage)
+                        {
+                            <a asp-controller="CustomerPortfolio"
+                               asp-action="Index"
+                               asp-all-route-data="nextRoute"
+                               class="btn btn-outline-primary"
+                               rel="next">
+                                Siguiente
+                            </a>
+                        }
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>

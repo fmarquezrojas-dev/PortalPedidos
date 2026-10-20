@@ -1,0 +1,17 @@
+@using Portal.Infrastructure.Identity
+@{
+    string email = User.Identity?.Name ?? "Mi cuenta";
+    string initial = string.IsNullOrWhiteSpace(email) ? "U" : email[..1].ToUpperInvariant();
+    string[] roles = { AppRoles.Admin, AppRoles.Seller, AppRoles.SalesSupervisor, AppRoles.Operator, AppRoles.CommercialManagement, AppRoles.Auditor };
+    string roleLabel = string.Join(" · ", roles.Where(User.IsInRole));
+}
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <a class="sidebar-account" asp-controller="Home" asp-action="Index" aria-label="Consultar mi cuenta">
+        <span class="account-avatar" aria-hidden="true">@initial</span>
+        <span class="account-info"><strong title="@email">@email</strong><small>@roleLabel</small></span>
+    </a>
+    <form asp-controller="Account" asp-action="Logout" method="post" asp-antiforgery="true">
+        <button type="submit" class="sidebar-logout"><partial name="_Icon" model='@("logout")' />Cerrar sesión</button>
+    </form>
+}

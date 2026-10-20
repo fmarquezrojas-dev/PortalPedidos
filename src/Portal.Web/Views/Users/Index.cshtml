@@ -1,0 +1,41 @@
+@model Portal.Application.DTOs.Security.ManagedUserPageDto
+@using Portal.Web.Formatting
+@{ ViewData["Title"] = "Usuarios"; }
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div><p class="section-kicker">ADMINISTRACIÓN</p><h1 class="h3 mb-2">Usuarios</h1><p class="text-muted mb-0">Las personas y los accesos de tu operación.</p></div>
+        <div class="d-flex flex-wrap gap-2"><a asp-action="Create" class="btn btn-primary"><partial name="_Icon" model='@("plus")' />Crear usuario</a><a asp-controller="Roles" asp-action="Index" class="btn btn-outline-secondary">Ver roles</a></div>
+    </div>
+    <div class="card"><div class="card-body">
+        <form method="get" asp-action="Index" class="row g-3 mb-4">
+            <div class="col-md-6"><label for="search" class="form-label">Correo electrónico</label><input id="search" name="search" value="@Model.Search" maxlength="100" class="form-control" placeholder="Buscar por correo…" /></div>
+            <div class="col-md-3"><label for="isActive" class="form-label">Estado</label><select id="isActive" name="isActive" class="form-select"><option value="">Todos los estados</option><option value="true" selected="@(Model.IsActive == true)">Activo</option><option value="false" selected="@(Model.IsActive == false)">Inactivo</option></select></div>
+            <div class="col-md-3 align-self-end d-flex gap-2"><button class="btn btn-primary" type="submit">Buscar</button><a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a></div>
+        </form>
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><span class="small text-muted">@Model.TotalCount cuentas encontradas</span><span class="small text-muted">Fechas en hora de Perú</span></div>
+        @if (Model.Items.Count == 0)
+        {
+            <div class="text-center border rounded p-5"><h2 class="h5">No hay cuentas con estos filtros</h2><p class="text-muted mb-0">Prueba con otro correo o cambia el estado seleccionado.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+                <caption class="visually-hidden">Cuentas del portal y sus permisos</caption>
+                <thead><tr><th scope="col">Correo</th><th scope="col">Estado</th><th scope="col">Roles</th><th scope="col">Creación</th><th scope="col" class="text-end">Acción</th></tr></thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr><td class="text-break fw-semibold">@item.Email</td><td><span class="badge @(item.IsActive ? "bg-success" : "bg-secondary")">@(item.IsActive ? "Activo" : "Inactivo")</span></td><td>@foreach (var role in item.Roles) { <span class="badge bg-primary me-1 mb-1">@role</span> }</td><td class="text-nowrap">@PortalDateTime.Format(item.CreatedAtUtc)</td><td class="text-end"><a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Administrar cuenta de @item.Email">Administrar</a></td></tr>
+                    }
+                </tbody>
+            </table></div>
+        }
+        <nav aria-label="Paginación de usuarios" class="d-flex align-items-center justify-content-between gap-3 mt-4">
+            <span class="small text-muted">Página @Model.PageNumber de @Model.TotalPages</span>
+            <div class="d-flex gap-2">
+                @if (Model.PageNumber > 1) { <a asp-action="Index" asp-route-search="@Model.Search" asp-route-isActive="@Model.IsActive" asp-route-pageNumber="@(Model.PageNumber - 1)" class="btn btn-outline-secondary">Anterior</a> }
+                @if (Model.PageNumber < Model.TotalPages) { <a asp-action="Index" asp-route-search="@Model.Search" asp-route-isActive="@Model.IsActive" asp-route-pageNumber="@(Model.PageNumber + 1)" class="btn btn-outline-secondary">Siguiente</a> }
+            </div>
+        </nav>
+    </div></div>
+</div>

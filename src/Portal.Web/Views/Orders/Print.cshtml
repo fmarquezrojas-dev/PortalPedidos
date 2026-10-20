@@ -1,0 +1,20 @@
+@model Portal.Application.DTOs.Orders.OrderDetailDto
+@using System.Globalization
+@using Portal.Web.Formatting
+@{ Layout = null; var culture = CultureInfo.GetCultureInfo("es-PE"); }
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Pedido @Model.Order.PublicNumber · PortalPedidos</title><link rel="stylesheet" href="~/css/order-print.css" asp-append-version="true" /></head>
+<body>
+    <div class="print-toolbar"><a asp-action="Details" asp-route-id="@Model.Order.Id">Volver al pedido</a><button type="button" id="print-order">Imprimir / Guardar PDF</button></div>
+    <main class="order-sheet">
+        <header><div><strong class="brand">PortalPedidos</strong><p>Resumen de pedido</p></div><div class="reference"><h1>Pedido #@Model.Order.PublicNumber</h1><p>@OrderStatusDisplay.Label(Model.Order.Status)</p></div></header>
+        <section class="order-info"><div><span>CLIENTE</span><strong>@Model.Order.CustomerName</strong><p>@Model.Order.CustomerCode</p></div><div><span>FECHA SOLICITADA</span><strong>@Model.RequestedDate.ToString("dd/MM/yyyy")</strong><p>Creado: @PortalDateTime.Format(Model.Order.CreatedAtUtc) · Perú</p></div></section>
+        <table><caption class="visually-hidden">Productos del pedido</caption><thead><tr><th scope="col">Producto</th><th scope="col" class="number">Cantidad</th><th scope="col" class="number">Precio @Model.Order.Currency</th><th scope="col" class="number">Importe @Model.Order.Currency</th></tr></thead><tbody>
+        @foreach (var line in Model.Lines) { <tr><td><strong>@line.Description</strong><small>@line.ItemCode</small></td><td class="number">@line.Quantity.ToString("0.####", culture)</td><td class="number">@line.UnitPrice.ToString("0.00##", culture)</td><td class="number">@line.LineAmount.ToString("N2", culture)</td></tr> }
+        </tbody></table>
+        <div class="total"><span>Subtotal referencial sin impuestos</span><strong>@Model.Order.Currency @Model.Order.Subtotal.ToString("N2", culture)</strong></div>
+        @if (!string.IsNullOrWhiteSpace(Model.ExternalOrderId)) { <p class="erp-reference">Referencia ERP: <strong>@Model.ExternalOrderId</strong></p> }
+        <footer><p>Documento de consulta. No es un comprobante de pago. La disponibilidad y la aceptación del pedido dependen del resultado del ERP.</p><p>Estado e importes correspondientes al momento de esta consulta.</p></footer>
+    </main>
+    <script src="~/js/order-print.js" asp-append-version="true"></script>
+</body></html>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/ErpSimulator.Api/ErpSimulator.Api.csproj" Id="466016ff-fbe3-46f8-8c37-516046bace50" />
+  <Project Path="src/Portal.Application/Portal.Application.csproj" Id="0d885c8b-b4dd-4c51-894d-5f47b6b54982" />
+  <Project Path="src/Portal.Domain/Portal.Domain/Portal.Domain.csproj" />
+  <Project Path="src/Portal.Infrastructure/Portal.Infrastructure.csproj" Id="55628ef5-d536-4ba2-a91a-e937c94a0ad5" />
+  <Project Path="src/Portal.Web/Portal.Web.csproj" Id="eef9fb26-a740-4f97-8673-9f1842788005" />
+</Solution>

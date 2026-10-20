@@ -1,0 +1,25 @@
+# Compilación y archivos locales de desarrollo
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+TestResults/
+artifacts/
+*.log
+# Configuración privada y certificados
+.env
+.env.*
+!.env.example
+**/secrets.json
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+*.pfx
+*.p12
+*.key
+# Datos y copias locales
+*.bak
+*.mdf
+*.ldf

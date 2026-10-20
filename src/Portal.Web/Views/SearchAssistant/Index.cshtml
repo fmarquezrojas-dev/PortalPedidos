@@ -1,0 +1,38 @@
+@model Portal.Web.Models.Search.SearchAssistantViewModel
+@using Portal.Application.DTOs.Search
+@using Portal.Web.Formatting
+@{ ViewData["Title"] = "Asistente de búsqueda"; }
+<div class="assistant-page">
+    <div class="page-heading"><p class="section-kicker">ENCUENTRA LO QUE NECESITAS</p><h1>Asistente de búsqueda</h1><p class="text-muted">Escribe una búsqueda corta para preparar los filtros de pedidos, clientes o productos.</p></div>
+    <div class="card"><div class="card-body">
+        <form asp-action="Index" method="post" asp-antiforgery="true">
+            <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+            <label asp-for="Question" class="form-label">¿Qué necesitas encontrar?</label>
+            <div class="assistant-input"><input asp-for="Question" class="form-control" maxlength="160" placeholder="Ejemplo: pedidos rechazados de este mes" autocomplete="off" /><button class="btn btn-primary" type="submit">Preparar búsqueda</button></div>
+            <p class="form-text mt-3 mb-0">Reconoce las búsquedas guiadas de los ejemplos. Los resultados respetan los permisos de tu cuenta.</p>
+        </form>
+    </div></div>
+    <section class="mt-4" aria-labelledby="examples-title"><h2 id="examples-title" class="h6 mb-3">Puedes empezar con…</h2><div class="assistant-examples">
+        @foreach (var example in new[] { "pedidos de hoy", "pedidos rechazados de este mes", "pedidos 1001", "clientes activos", "clientes inactivos", "productos cemento" })
+        {
+            <form asp-action="Index" method="post" asp-antiforgery="true"><input type="hidden" name="Question" value="@example" /><button type="submit" class="btn btn-outline-secondary btn-sm">@example</button></form>
+        }
+    </div></section>
+    @if (Model.Intent is { } intent)
+    {
+        <section class="card mt-4" aria-label="Búsqueda preparada"><div class="card-body">
+            <h2 class="h5">@(intent.Area == SearchArea.Unrecognized ? "Ajustemos la consulta" : "Tu búsqueda está preparada")</h2><p class="text-muted">@intent.Message</p>
+            @if (Model.Destination is not null)
+            {
+                <dl class="row mb-3"><dt class="col-sm-4">Sección</dt><dd class="col-sm-8">@(intent.Area switch { SearchArea.Orders => "Pedidos", SearchArea.Customers => "Clientes", _ => "Catálogo" })</dd>
+                    @if (intent.Term is not null) { <dt class="col-sm-4">Texto de búsqueda</dt><dd class="col-sm-8 text-break">@intent.Term</dd> }
+                    @if (intent.OrderStatus.HasValue) { <dt class="col-sm-4">Estado</dt><dd class="col-sm-8">@OrderStatusDisplay.Label(intent.OrderStatus.Value)</dd> }
+                    @if (intent.CustomerIsActive.HasValue) { <dt class="col-sm-4">Clientes</dt><dd class="col-sm-8">@(intent.CustomerIsActive.Value ? "Activos" : "Inactivos")</dd> }
+                    @if (intent.From.HasValue) { <dt class="col-sm-4">Fechas de creación · Perú</dt><dd class="col-sm-8">@intent.From.Value.ToString("dd/MM/yyyy") — @intent.To?.ToString("dd/MM/yyyy")</dd> }
+                </dl>
+                <a href="@Model.Destination" class="btn btn-primary">Abrir resultados <partial name="_Icon" model='@("arrow")' /></a>
+            }
+        </div></section>
+    }
+    <div class="alert alert-info mt-4"><strong>Ayuda para encontrar y navegar.</strong><p class="mb-0">Este asistente prepara filtros mediante reglas de búsqueda. No genera respuestas con IA ni crea, modifica o envía pedidos.</p></div>
+</div>

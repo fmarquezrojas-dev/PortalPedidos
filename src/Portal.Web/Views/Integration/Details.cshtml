@@ -1,0 +1,373 @@
+@model Portal.Application.DTOs.Integration.IntegrationMonitorDetailDto
+
+@using System.Globalization
+@using Portal.Domain.Enums
+@using Portal.Infrastructure.Identity
+@using Portal.Web.Formatting
+
+@{
+    var message = Model.Message;
+
+    ViewData["Title"] =
+        $"Integración del pedido #{message.PublicNumber}";
+
+    var culture = CultureInfo.GetCultureInfo("es-PE");
+
+    bool canReviewRecovery =
+        message.Status == IntegrationStatus.DeadLetter &&
+        (User.IsInRole(AppRoles.Admin) || User.IsInRole(AppRoles.Operator));
+}
+
+<div class="container-fluid py-4">
+    @if (message.Status == IntegrationStatus.DeadLetter &&
+        message.LastErrorCode is "ERP_LOOKUP_EXHAUSTED" or "ERP_RESULT_UNRESOLVED" or
+            "ERP_IDEMPOTENCY_CONFLICT" or "ERP_REMOTE_PAYLOAD_MISMATCH")
+    {
+        <div class="alert alert-warning" role="alert">El resultado de este pedido requiere verificación.
+        El procesamiento automático se detuvo. No crees otro pedido hasta revisar la referencia remota.</div>
+    }
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="status">
+            @successMessage
+        </div>
+    }
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <p class="section-kicker">SEGUIMIENTO DE ENVÍOS</p>
+            <h1 class="h3 mb-2">
+                Integración del pedido #@message.PublicNumber
+            </h1>
+
+            <span class="badge @IntegrationStatusDisplay.CssClass(message.Status)">
+                @IntegrationStatusDisplay.Label(message.Status)
+            </span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="Integration"
+               asp-action="Details"
+               asp-route-id="@message.MessageId"
+               class="btn btn-outline-primary">
+                Actualizar
+            </a>
+
+            @if (canReviewRecovery)
+            {
+                <a asp-controller="IntegrationRecovery"
+                   asp-action="Index"
+                   asp-route-id="@message.MessageId"
+                   class="btn btn-warning">
+                    Revisar recuperación
+                </a>
+            }
+
+            <a asp-controller="Orders"
+               asp-action="Details"
+               asp-route-id="@message.OrderId"
+               class="btn btn-outline-secondary">
+                Ver pedido
+            </a>
+
+            <a asp-controller="Integration"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                Volver
+            </a>
+        </div>
+    </div>
+
+    @if (message.Status == IntegrationStatus.DeadLetter)
+    {
+        <div class="alert alert-danger" role="alert">
+            <strong>La integración requiere revisión.</strong>
+
+            <p class="mb-0 mt-2">
+                El procesamiento automático se detuvo.
+                Este estado no equivale a un rechazo definitivo del ERP.
+                Revisa los registros y el último código antes de continuar.
+            </p>
+
+            @if (canReviewRecovery)
+            {
+                <p class="mb-0 mt-2">
+                    Utiliza “Revisar recuperación” para comprobar si este
+                    mensaje admite un nuevo ciclo de procesamiento.
+                </p>
+            }
+            else
+            {
+                <p class="mb-0 mt-2">
+                    La recuperación manual requiere una cuenta de administrador u operador.
+                </p>
+            }
+        </div>
+    }
+    else if (message.Status == IntegrationStatus.Unknown)
+    {
+        <div class="alert alert-warning" role="status">
+            <strong>El resultado está pendiente de verificación.</strong>
+
+            <p class="mb-0 mt-2">
+                El procesador consultará al ERP antes de considerar
+                un nuevo envío.
+            </p>
+        </div>
+    }
+    else if (message.Status == IntegrationStatus.RetryWaiting)
+    {
+        <div class="alert alert-warning" role="status">
+            Hay un nuevo envío programado.
+            El procesador lo intentará cuando llegue la fecha indicada.
+        </div>
+    }
+    else if (message.Status == IntegrationStatus.Processing)
+    {
+        <div class="alert alert-info" role="status">
+            El mensaje está en procesamiento.
+            Actualiza esta pantalla para consultar el resultado.
+        </div>
+    }
+    else if (message.Status == IntegrationStatus.Rejected)
+    {
+        <div class="alert alert-warning" role="status">
+            El ERP devolvió un rechazo definitivo.
+            Consulta el código del resultado y el motivo en el historial
+            del pedido.
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="small text-muted">Cliente</div>
+
+                    <div class="fw-semibold">
+                        @message.CustomerName
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="small text-muted">Envíos del ciclo</div>
+
+                    <div>@message.AttemptCount</div>
+                    <div class="small text-muted">Llamadas históricas registradas: @message.RecordedHttpAttempts</div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="small text-muted">Ciclo de recuperación</div>
+
+                    <div>@message.RecoveryCycle</div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="small text-muted">Mensaje</div>
+
+                    <div class="text-break">
+                        @message.MessageId
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="small text-muted">Referencia del ERP</div>
+
+                    <div class="text-break">
+                        @(string.IsNullOrWhiteSpace(message.ExternalOrderId)
+                            ? "Sin referencia asignada"
+                            : message.ExternalOrderId)
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="small text-muted">Creado · Perú</div>
+
+                    <div>
+                        @PortalDateTime.Format(message.CreatedAtUtc)
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="small text-muted">
+                        @(message.Status == IntegrationStatus.DeadLetter
+                            ? "Procesamiento detenido · Perú"
+                            : "Finalizado · Perú")
+                    </div>
+
+                    <div>
+                        @(message.CompletedAtUtc.HasValue
+                            ? PortalDateTime.Format(message.CompletedAtUtc.Value)
+                            : "Todavía no finalizado")
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="small text-muted">Último código</div>
+
+                    <div class="text-break">
+                        @(string.IsNullOrWhiteSpace(message.LastErrorCode)
+                            ? "—"
+                            : message.LastErrorCode)
+                    </div>
+                </div>
+
+                @if (IntegrationStatusDisplay.HasScheduledWork(message.Status))
+                {
+                    <div class="col-md-6">
+                        <div class="small text-muted">
+                            Próxima revisión programada · Perú
+                        </div>
+
+                        <div>
+                            @PortalDateTime.Format(message.NextAttemptAtUtc)
+                        </div>
+                    </div>
+                }
+
+                @if (message.Status == IntegrationStatus.Processing)
+                {
+                    <div class="col-md-6">
+                        <div class="small text-muted">
+                            Concesión de procesamiento hasta · Perú
+                        </div>
+
+                        <div>
+                            @(message.LeaseUntilUtc.HasValue
+                                ? PortalDateTime.Format(message.LeaseUntilUtc.Value)
+                                : "Sin vencimiento registrado")
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <p class="small text-muted mt-3 mb-0">
+                El contador de envíos corresponde al ciclo actual.
+                Los registros de los ciclos anteriores se conservan.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h2 class="h5 mb-1">Últimos registros</h2>
+
+            <p class="small text-muted mb-0">
+                Hasta 50 registros, del más reciente al más antiguo.
+                Incluye envíos, consultas y marcas de recuperación manual.
+            </p>
+        </div>
+
+        <div class="card-body">
+            @if (Model.Attempts.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    Todavía no se han registrado operaciones.
+                </p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">N.º</th>
+                                <th scope="col">Operación</th>
+                                <th scope="col">Inicio · Perú</th>
+                                <th scope="col">HTTP</th>
+                                <th scope="col">Resultado</th>
+                                <th scope="col" class="text-end">
+                                    Duración
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var attempt in Model.Attempts)
+                            {
+                                <tr>
+                                    <td>@attempt.AttemptNumber</td>
+
+                                    <td>
+                                        @(attempt.Operation == "Submit"
+                                            ? "Envío"
+                                            : attempt.Operation == "Lookup"
+                                                ? "Consulta"
+                                                : attempt.Operation == "Recovery"
+                                                    ? "Recuperación manual"
+                                                    : attempt.Operation)
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @PortalDateTime.Format(attempt.StartedAtUtc)
+                                    </td>
+
+                                    <td>
+                                        @(attempt.HttpStatus?.ToString() ?? "—")
+                                    </td>
+
+                                    <td>
+                                        <div class="fw-semibold text-break">
+                                            @attempt.ResultCode
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(attempt.ErrorSummary))
+                                        {
+                                            <div class="small text-danger text-break">
+                                                @attempt.ErrorSummary
+                                            </div>
+                                        }
+
+                                        @if (attempt.Operation == "Recovery")
+                                        {
+                                            <div class="small text-muted">
+                                                Inicio de un nuevo ciclo.
+                                                Este registro no representa una llamada HTTP.
+                                            </div>
+                                        }
+
+                                        <details class="mt-2">
+                                            <summary class="small">
+                                                Datos de seguimiento
+                                            </summary>
+
+                                            <div class="small mt-2">
+                                                <strong>Fin · Perú:</strong>
+
+                                                @(attempt.FinishedAtUtc.HasValue
+                                                    ? PortalDateTime.Format(attempt.FinishedAtUtc.Value)
+                                                    : "Sin finalización registrada")
+                                            </div>
+
+                                            <div class="small text-break mt-1">
+                                                <strong>Correlación:</strong>
+                                                @attempt.CorrelationId
+                                            </div>
+                                        </details>
+                                    </td>
+
+                                    <td class="text-end text-nowrap">
+                                        @if (attempt.Operation == "Recovery")
+                                        {
+                                            <span class="text-muted">No aplica</span>
+                                        }
+                                        else if (attempt.DurationMs.HasValue)
+                                        {
+                                            <span>
+                                                @attempt.DurationMs.Value.ToString("N0", culture) ms
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

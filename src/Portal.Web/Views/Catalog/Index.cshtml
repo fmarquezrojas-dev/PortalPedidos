@@ -1,0 +1,294 @@
+@model Portal.Application.DTOs.Catalog.ProductCatalogPageDto
+
+@using System.Globalization
+@using Portal.Web.Formatting
+
+@{
+    ViewData["Title"] = "Catálogo";
+
+    var culture = CultureInfo.GetCultureInfo("es-PE");
+    var nowUtc = DateTime.UtcNow;
+
+    bool hasCatalog =
+        Model.LastSuccessAtUtc.HasValue &&
+        Model.CatalogObservedAtUtc.HasValue &&
+        Model.CatalogVersion > 0;
+
+    double ageSeconds = Model.CatalogObservedAtUtc.HasValue
+        ? (nowUtc -
+            PortalDateTime.AsUtc(Model.CatalogObservedAtUtc.Value))
+            .TotalSeconds
+        : double.PositiveInfinity;
+
+    bool isStale =
+        !hasCatalog ||
+        ageSeconds > 300 ||
+        ageSeconds < -60;
+
+    bool lastAttemptFailed =
+        !string.IsNullOrWhiteSpace(Model.LastErrorCode);
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between
+        align-items-center gap-3 mb-4">
+        <div>
+            <p class="section-kicker">PRODUCTOS Y EXISTENCIAS</p>
+            <h1 class="h3 mb-1">Catálogo de productos</h1>
+            <p class="text-muted mb-0">
+                Almacén 01 · Moneda PEN
+            </p>
+        </div>
+
+        <a asp-controller="Catalog"
+           asp-action="Index"
+           asp-route-search="@Model.Search"
+           asp-route-pageNumber="@Model.PageNumber"
+           class="btn btn-outline-secondary">
+            Actualizar vista
+        </a>
+    </div>
+
+    @if (!hasCatalog)
+    {
+        <div class="alert alert-secondary" role="status">
+            <strong>Catálogo pendiente de sincronización.</strong>
+            Todavía no hay una lectura completa disponible.
+        </div>
+    }
+    else if (isStale)
+    {
+        <div class="alert alert-warning" role="status">
+            <strong>Catálogo desactualizado.</strong>
+            Los datos superan la antigüedad permitida o su fecha
+            requiere revisión. Se conserva la última información
+            recibida.
+        </div>
+    }
+    else if (lastAttemptFailed)
+    {
+        <div class="alert alert-warning" role="status">
+            <strong>La última actualización no pudo completarse.</strong>
+            La lectura anterior todavía está dentro del margen
+            de cinco minutos.
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success" role="status">
+            <strong>Catálogo actualizado.</strong>
+            La lectura tiene una antigüedad máxima de cinco minutos.
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="small text-muted">
+                        Lectura del ERP · hora de Perú
+                    </div>
+                    <div class="fw-semibold">
+                        @PortalDateTime.Format(Model.CatalogObservedAtUtc)
+                    </div>
+                    <div class="small text-muted">
+                        @PortalDateTime.Age(
+                            Model.CatalogObservedAtUtc,
+                            nowUtc)
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="small text-muted">
+                        Última sincronización correcta · hora de Perú
+                    </div>
+                    <div class="fw-semibold">
+                        @PortalDateTime.Format(Model.LastSuccessAtUtc)
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="small text-muted">
+                        Versión del catálogo
+                    </div>
+                    <div class="fw-semibold">
+                        @(Model.CatalogVersion > 0
+                            ? Model.CatalogVersion.ToString()
+                            : "Sin sincronizar")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-controller="Catalog"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-2 align-items-end mb-4">
+
+                <div class="col-md-8">
+                    <label for="search" class="form-label">
+                        Buscar por código o nombre
+                    </label>
+
+                    <input id="search"
+                           name="search"
+                           value="@Model.Search"
+                           maxlength="100"
+                           class="form-control"
+                           placeholder="Ejemplo: cemento o P001" />
+                </div>
+
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-primary">
+                        Buscar
+                    </button>
+                </div>
+
+                <div class="col-md-auto">
+                    <a asp-controller="Catalog"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap justify-content-between
+                gap-2 mb-3">
+                <span class="text-muted">
+                    Productos encontrados: @Model.TotalCount
+                </span>
+
+                <span class="small text-muted">
+                    Precios referenciales sin impuestos
+                </span>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="text-center border rounded p-4">
+                    @if (string.IsNullOrWhiteSpace(Model.Search))
+                    {
+                        <p class="mb-0">
+                            No hay productos activos disponibles.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="mb-0">
+                            No se encontraron productos para esta búsqueda.
+                        </p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Unidad</th>
+                                <th class="text-end">
+                                    Precio ref. sin impuestos
+                                </th>
+                                <th class="text-end">
+                                    Disponible
+                                </th>
+                                <th>Lectura · Perú</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">
+                                        @item.Code
+                                    </td>
+
+                                    <td>@item.Name</td>
+
+                                    <td>@item.UnitCode</td>
+
+                                    <td class="text-end text-nowrap">
+                                        S/ @item.UnitPrice.ToString(
+                                                                                    "0.00##",
+                                                                                    culture)
+                                    </td>
+
+                                    <td class="text-end">
+                                        @if (!item.AvailableStock.HasValue)
+                                        {
+                                            <span class="badge bg-secondary">
+                                                Sin lectura
+                                            </span>
+                                        }
+                                        else if (item.AvailableStock.Value == 0)
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                Sin existencias
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            @item.AvailableStock.Value.ToString(
+                                                "0.####",
+                                                culture)
+                                        }
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @PortalDateTime.Format(
+                                            item.StockObservedAtUtc)
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap justify-content-between
+                align-items-center gap-3 mt-3">
+                <span class="text-muted">
+                    Página @Model.PageNumber de @Model.TotalPages
+                </span>
+
+                <div class="d-flex gap-2">
+                    @if (Model.HasPreviousPage)
+                    {
+                        <a asp-controller="Catalog"
+                           asp-action="Index"
+                           asp-route-search="@Model.Search"
+                           asp-route-pageNumber="@(Model.PageNumber - 1)"
+                           class="btn btn-outline-primary">
+                            Anterior
+                        </a>
+                    }
+
+                    @if (Model.HasNextPage)
+                    {
+                        <a asp-controller="Catalog"
+                           asp-action="Index"
+                           asp-route-search="@Model.Search"
+                           asp-route-pageNumber="@(Model.PageNumber + 1)"
+                           class="btn btn-outline-primary">
+                            Siguiente
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="small text-muted mt-3">
+        Las existencias corresponden a la última lectura recibida.
+        La confirmación del pedido dependerá de la disponibilidad
+        validada por el ERP.
+    </p>
+</div>

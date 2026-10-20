@@ -1,0 +1,7 @@
+﻿@model Portal.Domain.Enums.OrderStatus
+
+@using Portal.Web.Formatting
+
+<span class="badge @OrderStatusDisplay.CssClass(Model)">
+    @OrderStatusDisplay.Label(Model)
+</span>

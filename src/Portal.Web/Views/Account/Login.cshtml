@@ -1,0 +1,52 @@
+@model Portal.Web.Models.Account.LoginViewModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Iniciar sesión";
+}
+<div class="auth-shell">
+    <section class="auth-story" aria-label="Portal de gestión comercial">
+        <a class="portal-brand" asp-controller="Account" asp-action="Login"><img src="~/img/brand.svg" width="42" height="42" alt="" /><span>Portal<span class="brand-light">Pedidos</span></span></a>
+        <div class="auth-story-content">
+            <p class="eyebrow light">TU OPERACIÓN, CONECTADA</p>
+            <h2>Cada pedido,<br />un paso <em>adelante.</em></h2>
+            <p class="auth-description">Clientes, equipos y pedidos en un solo lugar. Todo lo que necesitas para dar seguimiento a tu gestión comercial.</p>
+            <div class="auth-workflow" aria-label="Flujo de pedidos">
+                <div class="workflow-step"><span class="workflow-icon"><partial name="_Icon" model='@("orders")' /></span><div><small>01 / PREPARA</small><strong>Del cliente al pedido</strong><span>Organiza productos y cantidades.</span></div><partial name="_Icon" model='@("check")' /></div>
+                <div class="workflow-step"><span class="workflow-icon"><partial name="_Icon" model='@("link")' /></span><div><small>02 / CONECTA</small><strong>Envía con seguimiento</strong><span>Consulta el resultado de tu envío.</span></div><partial name="_Icon" model='@("arrow")' /></div>
+                <div class="workflow-step"><span class="workflow-icon"><partial name="_Icon" model='@("activity")' /></span><div><small>03 / CONTROLA</small><strong>Cada movimiento cuenta</strong><span>Revisa el historial de tus operaciones.</span></div><partial name="_Icon" model='@("check")' /></div>
+            </div>
+        </div>
+        <div class="auth-story-footer"><span>GESTIÓN COMERCIAL</span><span>Hecho para avanzar.</span></div>
+    </section>
+    <main id="main-content" class="auth-main" tabindex="-1">
+        <div class="auth-topline"><span class="auth-mobile-brand">PortalPedidos</span><span>ACCESO AL PORTAL</span><partial name="_ThemeToggle" /></div>
+        <div class="auth-form-panel">
+            <div class="auth-lock"><partial name="_Icon" model='@("lock")' /></div>
+            <p class="eyebrow">BIENVENIDO DE NUEVO</p>
+            <h1>Tu jornada empieza aquí.</h1>
+            <p class="text-muted mb-4">Ingresa con tu cuenta para continuar.</p>
+            <form asp-controller="Account" asp-action="Login" method="post" asp-antiforgery="true" data-busy-form>
+                <input asp-for="ReturnUrl" type="hidden" />
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert" tabindex="-1"></div>
+                <div class="mb-4">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="username" inputmode="email" placeholder="nombre@empresa.com" aria-describedby="email-error" />
+                    <span asp-validation-for="Email" id="email-error" class="text-danger small"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label"></label>
+                    <div class="password-field">
+                        <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" aria-describedby="password-error" placeholder="Tu contraseña" />
+                        <button class="password-toggle" type="button" data-password-toggle="Password" aria-label="Mostrar contraseña" aria-pressed="false" hidden><partial name="_Icon" model='@("eye")' /></button>
+                    </div>
+                    <span asp-validation-for="Password" id="password-error" class="text-danger small"></span>
+                </div>
+                <div class="form-check mb-4"><input asp-for="RememberMe" class="form-check-input" /><label asp-for="RememberMe" class="form-check-label">Mantener mi sesión iniciada</label></div>
+                <button type="submit" class="btn btn-primary auth-submit w-100" data-busy-button data-busy-label="Ingresando…"><span>Iniciar sesión</span><partial name="_Icon" model='@("arrow")' /></button>
+            </form>
+            <div class="auth-support"><strong>¿Necesitas acceso?</strong><p>Solicita tu cuenta o ayuda con tu contraseña al administrador del portal.</p></div>
+        </div>
+        <footer class="auth-footer"><span>PortalPedidos · Perú</span><a asp-controller="Home" asp-action="Privacy">Información y privacidad</a></footer>
+    </main>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

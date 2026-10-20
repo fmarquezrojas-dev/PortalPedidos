@@ -1,0 +1,145 @@
+@model Portal.Web.Models.Orders.CancelOrderViewModel
+
+@using System.Globalization
+
+@{
+    ViewData["Title"] = $"Cancelar pedido #{Model.PublicNumber}";
+
+    var culture = CultureInfo.GetCultureInfo("es-PE");
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <p class="section-kicker">GESTIÓN DE PEDIDOS</p>
+            <h1 class="h3 mb-3">
+                Cancelar pedido #@Model.PublicNumber
+            </h1>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <div class="small text-muted">
+                                Cliente
+                            </div>
+
+                            <div class="fw-semibold">
+                                @Model.CustomerName
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="small text-muted">
+                                Importe referencial sin impuestos
+                            </div>
+
+                            <div class="fw-semibold">
+                                @Model.Currency
+                                @Model.Subtotal.ToString("N2", culture)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div asp-validation-summary="All"
+                 class="text-danger mb-3"
+                 role="alert"></div>
+
+            @if (!Model.CanCancel)
+            {
+                <div class="alert alert-warning" role="alert">
+                    Este pedido ya no está en estado Borrador.
+                    Revisa su estado actual en el detalle.
+                </div>
+
+                <a asp-controller="Orders"
+                   asp-action="Details"
+                   asp-route-id="@Model.Id"
+                   class="btn btn-outline-secondary">
+                    Volver al pedido
+                </a>
+            }
+            else
+            {
+                <div class="alert alert-warning" role="alert">
+                    <strong>Esta acción es definitiva para este borrador.</strong>
+
+                    <p class="mb-0 mt-2">
+                        El pedido quedará cancelado y no podrá editarse
+                        ni enviarse al ERP. Su información se conservará
+                        para consulta.
+                    </p>
+                </div>
+
+                <form asp-controller="Orders"
+                      asp-action="Cancel"
+                      asp-route-id="@Model.Id"
+                      asp-antiforgery="true"
+                      method="post">
+
+                    <input asp-for="Id" type="hidden" />
+                    <input asp-for="RowVersion" type="hidden" />
+
+                    <div class="mb-3">
+                        <label asp-for="Reason"
+                               class="form-label"></label>
+
+                        <textarea asp-for="Reason"
+                                  class="form-control"
+                                  rows="4"
+                                  minlength="5"
+                                  maxlength="250"
+                                  required
+                                  placeholder="Ejemplo: el cliente desistió de la compra."></textarea>
+
+                        <div class="form-text">
+                            Escribe entre 5 y 250 caracteres.
+                        </div>
+
+                        <span asp-validation-for="Reason"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input asp-for="ConfirmCancellation"
+                               class="form-check-input"
+                               required />
+
+                        <label asp-for="ConfirmCancellation"
+                               class="form-check-label">
+                            Confirmo que deseo cancelar este borrador.
+                        </label>
+
+                        <div>
+                            <span asp-validation-for="ConfirmCancellation"
+                                  class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            Cancelar definitivamente
+                        </button>
+
+                        <a asp-controller="Orders"
+                           asp-action="Details"
+                           asp-route-id="@Model.Id"
+                           class="btn btn-outline-secondary">
+                            Volver sin cancelar
+                        </a>
+                    </div>
+
+                    <div class="mt-3">
+                        <a asp-controller="Orders"
+                           asp-action="Cancel"
+                           asp-route-id="@Model.Id">
+                            Recargar confirmación y descartar el motivo escrito
+                        </a>
+                    </div>
+                </form>
+            }
+        </div>
+    </div>
+</div>

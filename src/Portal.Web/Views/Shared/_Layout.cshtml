@@ -1,0 +1,115 @@
+@using Microsoft.AspNetCore.Authorization
+@using Portal.Infrastructure.Identity
+@using Portal.Web.Security
+@inject IAuthorizationService AuthorizationService
+@{
+    bool authenticated = User.Identity?.IsAuthenticated == true;
+    string currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    string activeController = currentController switch
+    {
+        "OrderCopies" => "Orders",
+        "IntegrationRecovery" => "Integration",
+        "CustomerEligibility" => "Customers",
+        _ => currentController
+    };
+    bool canViewOrders = (await AuthorizationService.AuthorizeAsync(User, AppPolicies.ViewOrders)).Succeeded;
+    bool canCreateOrders = (await AuthorizationService.AuthorizeAsync(User, AppPolicies.CreateOrders)).Succeeded;
+    bool canViewTeams = (await AuthorizationService.AuthorizeAsync(User, AppPolicies.ViewTeams)).Succeeded;
+    bool canViewUsers = (await AuthorizationService.AuthorizeAsync(User, AppPolicies.ViewUsers)).Succeeded;
+    bool canViewRoles = (await AuthorizationService.AuthorizeAsync(User, AppPolicies.ViewRoles)).Succeeded;
+    bool isAdministrator = User.IsInRole(AppRoles.Admin);
+    bool canOperate = isAdministrator || User.IsInRole(AppRoles.Operator);
+    var navigation = new[]
+    {
+        (Group: "ESPACIO DE TRABAJO", Controller: "Dashboard", Label: "Resumen", Icon: "grid", Visible: canViewOrders),
+        (Group: "ESPACIO DE TRABAJO", Controller: "SearchAssistant", Label: "Asistente de búsqueda", Icon: "search", Visible: canViewOrders),
+        (Group: "ESPACIO DE TRABAJO", Controller: "Orders", Label: "Pedidos", Icon: "orders", Visible: canViewOrders),
+        (Group: "ESPACIO DE TRABAJO", Controller: "Customers", Label: "Clientes", Icon: "users", Visible: canViewOrders),
+        (Group: "ESPACIO DE TRABAJO", Controller: "Catalog", Label: "Catálogo", Icon: "box", Visible: authenticated),
+        (Group: "GESTIÓN COMERCIAL", Controller: "CustomerPortfolio", Label: "Cartera comercial", Icon: "briefcase", Visible: isAdministrator),
+        (Group: "GESTIÓN COMERCIAL", Controller: "Teams", Label: "Equipos", Icon: "users", Visible: canViewTeams),
+        (Group: "CONTROL Y ACCESOS", Controller: "Integration", Label: "Integraciones", Icon: "link", Visible: canOperate),
+        (Group: "CONTROL Y ACCESOS", Controller: "Audit", Label: "Auditoría", Icon: "activity", Visible: canOperate),
+        (Group: "CONTROL Y ACCESOS", Controller: "Users", Label: "Usuarios", Icon: "shield", Visible: canViewUsers),
+        (Group: "CONTROL Y ACCESOS", Controller: "Roles", Label: "Roles y permisos", Icon: "key", Visible: canViewRoles)
+    };
+    string moduleLabel = navigation.FirstOrDefault(item => item.Controller == activeController).Label ?? "Inicio";
+}
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#142b2a" />
+    <title>@ViewData["Title"] · PortalPedidos</title>
+    <link rel="icon" href="~/img/brand.svg" type="image/svg+xml" />
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
+    <noscript><link rel="stylesheet" href="~/css/no-script.css" asp-append-version="true" /></noscript>
+</head>
+<body class="portal-body @(authenticated ? "" : "portal-guest")" data-module="@activeController">
+    <a href="#main-content" class="skip-link">Saltar al contenido</a>
+    @if (authenticated)
+    {
+        <aside class="portal-sidebar" id="portal-sidebar" aria-label="Navegación del portal">
+            <div class="sidebar-brand-row">
+                <a class="portal-brand" asp-controller="Home" asp-action="Index" aria-label="PortalPedidos, inicio">
+                    <img src="~/img/brand.svg" width="38" height="38" alt="" />
+                    <span>Portal<span class="brand-light">Pedidos</span><small>GESTIÓN COMERCIAL</small></span>
+                </a>
+                <button class="icon-button sidebar-close" type="button" data-sidebar-close aria-label="Cerrar menú"><partial name="_Icon" model='@("close")' /></button>
+            </div>
+            <nav class="sidebar-navigation" aria-label="Menú principal">
+                @foreach (var group in navigation.Where(item => item.Visible).GroupBy(item => item.Group))
+                {
+                    <div class="nav-group">
+                        <p class="nav-group-label">@group.Key</p>
+                        @foreach (var item in group)
+                        {
+                            bool active = item.Controller == activeController;
+                            <a asp-controller="@item.Controller" asp-action="Index" class="sidebar-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
+                                <partial name="_Icon" model="item.Icon" /><span>@item.Label</span>
+                            </a>
+                        }
+                    </div>
+                }
+            </nav>
+            <div class="sidebar-bottom"><partial name="_LoginPartial" /></div>
+        </aside>
+        <button class="sidebar-backdrop" type="button" data-sidebar-close aria-label="Cerrar menú" tabindex="-1" hidden></button>
+    }
+    <div class="portal-workspace">
+        <header class="portal-topbar">
+            <div class="topbar-context">
+                @if (authenticated)
+                {
+                    <button id="sidebar-toggle" type="button" class="icon-button mobile-menu" aria-controls="portal-sidebar" aria-expanded="false" aria-label="Abrir menú"><partial name="_Icon" model='@("menu")' /></button>
+                    <nav aria-label="Ruta de navegación" class="portal-breadcrumb"><a asp-controller="Home" asp-action="Index">Mi espacio</a><span aria-hidden="true">/</span><span>@moduleLabel</span></nav>
+                }
+                else
+                {
+                    <a class="portal-brand text-dark" asp-controller="Account" asp-action="Login"><img src="~/img/brand.svg" width="34" height="34" alt="" /><span>PortalPedidos</span></a>
+                }
+            </div>
+            <div class="topbar-actions">
+                <partial name="_ThemeToggle" />
+                <span class="workspace-label">Portal comercial <span aria-hidden="true">·</span> Perú</span>
+                @if (canCreateOrders && !(currentController == "Orders" && ViewContext.RouteData.Values["action"]?.ToString() == "Create"))
+                {
+                    <a asp-controller="Orders" asp-action="Create" class="btn btn-primary btn-sm"><partial name="_Icon" model='@("plus")' /><span>Nuevo pedido</span></a>
+                }
+            </div>
+        </header>
+        <main id="main-content" class="portal-content" tabindex="-1">
+            @RenderBody()
+        </main>
+        <footer class="portal-footer"><span>PortalPedidos <span aria-hidden="true">/</span> Gestión comercial</span><a asp-controller="Home" asp-action="Privacy">Información y privacidad</a></footer>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

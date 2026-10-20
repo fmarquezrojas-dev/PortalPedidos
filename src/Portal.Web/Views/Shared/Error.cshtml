@@ -1,0 +1,10 @@
+@model ErrorViewModel
+@{ ViewData["Title"] = "No pudimos completar la operación"; }
+<div class="status-page">
+    <div class="status-mark"><partial name="_Icon" model='@("alert")' /></div>
+    <p class="eyebrow">ALGO NECESITA REVISIÓN</p>
+    <h1>No pudimos completar la operación</h1>
+    <p class="text-muted mt-3">Vuelve al inicio y revisa el estado de la operación antes de intentarlo otra vez. Si el problema continúa, contacta al administrador.</p>
+    @if (Model.ShowRequestId) { <div class="card card-body text-start my-4"><span class="small text-muted mb-1">Referencia para soporte</span><code>@Model.RequestId</code></div> }
+    <a asp-controller="Home" asp-action="Index" class="btn btn-primary mt-2">Volver al inicio</a>
+</div>

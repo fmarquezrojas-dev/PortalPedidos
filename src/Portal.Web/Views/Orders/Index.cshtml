@@ -1,0 +1,274 @@
+@model Portal.Application.DTOs.Orders.OrderListPageDto
+
+@using System
+@using System.Globalization
+@using Portal.Domain.Enums
+@using Portal.Web.Formatting
+@using Portal.Web.Security
+
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService AuthorizationService
+
+@{
+    var culture = CultureInfo.GetCultureInfo("es-PE");
+
+    string pageTitle = Model.ShowsAllOrders
+        ? "Pedidos"
+        : Model.ShowsTeamOrders
+            ? "Pedidos de mis equipos"
+            : "Mis pedidos";
+
+    string pageDescription = Model.ShowsAllOrders
+        ? "Consulta los pedidos registrados en el portal."
+        : Model.ShowsTeamOrders
+            ? "Consulta tus pedidos y los atribuidos a los equipos activos que supervisas."
+            : "Consulta los pedidos registrados con tu cuenta.";
+
+    ViewData["Title"] = pageTitle;
+
+    bool canCreateOrders = (await AuthorizationService.AuthorizeAsync(
+        User,
+        null,
+        AppPolicies.CreateOrders)).Succeeded;
+}
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <p class="section-kicker">GESTIÓN DE PEDIDOS</p>
+            <h1 class="h3 mb-1">@pageTitle</h1>
+
+        <p class="text-muted mb-0">
+            @pageDescription
+        </p>
+    </div>
+
+    @if (canCreateOrders)
+    {
+        <div class="mb-3">
+            <a asp-controller="Orders"
+               asp-action="Create"
+               class="btn btn-primary">
+                Nuevo pedido
+            </a>
+        </div>
+    }
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+            <form asp-controller="Orders"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-3 align-items-end mb-4">
+
+                <div class="col-md-6">
+                    <label for="search" class="form-label">
+                        Número de pedido o cliente
+                    </label>
+
+                    <input id="search"
+                           name="search"
+                           value="@Model.Search"
+                           maxlength="100"
+                           class="form-control"
+                           placeholder="Ejemplo: 1001 o Ferretería Central" />
+                </div>
+
+                <div class="col-md-3">
+                    <label for="status" class="form-label">
+                        Estado
+                    </label>
+
+                    <select id="status"
+                            name="status"
+                            class="form-select">
+                        <option value="">Todos los estados</option>
+
+                        @foreach (var state in Enum.GetValues<OrderStatus>())
+                        {
+                            if (Model.Status == state)
+                            {
+                                <option value="@state" selected>
+                                    @OrderStatusDisplay.Label(state)
+                                </option>
+                            }
+                            else
+                            {
+                                <option value="@state">
+                                    @OrderStatusDisplay.Label(state)
+                                </option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-3"><label for="from" class="form-label">Creado desde · Perú</label><input type="date" id="from" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" max="9998-12-31" class="form-control" /></div>
+                <div class="col-md-3"><label for="to" class="form-label">Creado hasta · Perú</label><input type="date" id="to" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" max="9998-12-31" class="form-control" /></div>
+                <div class="col-md-6 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        Buscar
+                    </button>
+
+                    <a asp-controller="Orders"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a asp-action="Index" asp-route-status="Draft" class="btn btn-sm btn-outline-secondary">Borradores</a>
+                <a asp-action="Index" asp-route-status="Queued" class="btn btn-sm btn-outline-secondary">Por confirmar</a>
+                <a asp-action="Index" asp-route-status="Rejected" class="btn btn-sm btn-outline-secondary">Rechazados</a>
+                @if (Model.TotalCount <= 2000 && Model.TotalCount > 0)
+                {
+                    <a asp-action="Export" asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-from="@Model.From?.ToString("yyyy-MM-dd")" asp-route-to="@Model.To?.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary ms-sm-auto">Exportar resultados CSV</a>
+                }
+                else if (Model.TotalCount > 2000) { <span class="small text-muted align-self-center">Reduce los resultados a 2000 pedidos para exportar.</span> }
+            </div>
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <span class="text-muted">
+                    Pedidos encontrados: @Model.TotalCount
+                </span>
+
+                <span class="small text-muted">
+                    Importes referenciales sin impuestos
+                </span>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="text-center border rounded p-5">
+                    <h2 class="h5">
+                        No hay pedidos para mostrar
+                    </h2>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Search) ||
+                         Model.Status.HasValue || Model.From.HasValue || Model.To.HasValue)
+                    {
+                        <p class="text-muted mb-0">
+                            Revisa las fechas o prueba con otro cliente, número o estado.
+                        </p>
+                    }
+                    else if (Model.ShowsTeamOrders)
+                    {
+                        <p class="text-muted mb-0">
+                            Aquí aparecerán tus pedidos y los atribuidos
+                            a los equipos activos que supervisas.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">
+                            Los pedidos disponibles para tu cuenta
+                            aparecerán aquí.
+                        </p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Pedido</th>
+                                <th scope="col">Cliente</th>
+                                <th scope="col">Fecha · Perú</th>
+                                <th scope="col">Estado</th>
+
+                                <th scope="col" class="text-end">
+                                    Importe ref.
+                                </th>
+
+                                <th scope="col" class="text-end">
+                                    Acción
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="fw-semibold text-nowrap">
+                                        #@item.PublicNumber
+                                    </td>
+
+                                    <td>
+                                        <div>@item.CustomerName</div>
+
+                                        <div class="small text-muted">
+                                            @item.CustomerCode
+                                        </div>
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @PortalDateTime.Format(item.CreatedAtUtc)
+                                    </td>
+
+                                    <td>
+                                        <partial name="_OrderStatus"
+                                                 model="item.Status" />
+                                    </td>
+
+                                    <td class="text-end text-nowrap">
+                                        @item.Currency
+                                        @item.Subtotal.ToString("N2", culture)
+                                    </td>
+
+                                    <td class="text-end">
+                                        <a asp-controller="Orders"
+                                           asp-action="Details"
+                                           asp-route-id="@item.Id"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Ver detalle
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+                <span class="text-muted">
+                    Página @Model.PageNumber de @Model.TotalPages
+                </span>
+
+                <div class="d-flex gap-2">
+                    @if (Model.HasPreviousPage)
+                    {
+                        <a asp-controller="Orders"
+                           asp-action="Index"
+                           asp-route-search="@Model.Search"
+                           asp-route-status="@Model.Status"
+                           asp-route-pageNumber="@(Model.PageNumber - 1)"
+                           asp-route-pageSize="@Model.PageSize"
+                           asp-route-from="@Model.From?.ToString("yyyy-MM-dd")"
+                           asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+                           class="btn btn-outline-primary">
+                            Anterior
+                        </a>
+                    }
+
+                    @if (Model.HasNextPage)
+                    {
+                        <a asp-controller="Orders"
+                           asp-action="Index"
+                           asp-route-search="@Model.Search"
+                           asp-route-status="@Model.Status"
+                           asp-route-pageNumber="@(Model.PageNumber + 1)"
+                           asp-route-pageSize="@Model.PageSize"
+                           asp-route-from="@Model.From?.ToString("yyyy-MM-dd")"
+                           asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+                           class="btn btn-outline-primary">
+                            Siguiente
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

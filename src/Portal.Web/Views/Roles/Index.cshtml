@@ -1,0 +1,260 @@
+@model System.Collections.Generic.IReadOnlyList<Portal.Application.DTOs.Security.RoleDirectoryItemDto>
+
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Roles del portal";
+
+    int definedRoles = Model.Count(item => item.IsRecognized);
+
+    int registeredDefinedRoles = Model.Count(
+        item => item.IsRecognized && item.IsRegistered);
+
+    int pendingAccessRoles = Model.Count(
+        item => item.IsRecognized && !item.AccessConfigured);
+
+    bool hasUnregisteredRoles = Model.Any(
+        item => item.IsRecognized && !item.IsRegistered);
+
+    bool hasUnknownRoles = Model.Any(
+        item => !item.IsRecognized);
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between
+                align-items-start gap-3 mb-4">
+        <div>
+            <p class="section-kicker">SEGURIDAD Y ACCESOS</p>
+            <h1 class="h3 mb-2">
+                Roles del portal
+            </h1>
+
+            <p class="text-muted mb-0">
+                Consulta las responsabilidades y las asignaciones
+                actuales de los roles de PortalPedidos.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="Users"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                Ver usuarios
+            </a>
+
+            <a asp-controller="Roles"
+               asp-action="Index"
+               class="btn btn-outline-primary">
+                Actualizar listado
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">
+                        Roles definidos
+                    </div>
+
+                    <div class="h2 mb-0">
+                        @definedRoles
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">
+                        Roles definidos registrados
+                    </div>
+
+                    <div class="h2 mb-0">
+                        @registeredDefinedRoles
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">
+                        Roles con funcionalidades pendientes
+                    </div>
+
+                    <div class="h2 mb-0">
+                        @pendingAccessRoles
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (hasUnregisteredRoles)
+    {
+        <div class="alert alert-warning" role="status">
+            Hay roles definidos que todavía no están registrados
+            en el sistema. Su preparación debe realizarla
+            el responsable de la aplicación.
+        </div>
+    }
+
+    @if (hasUnknownRoles)
+    {
+        <div class="alert alert-warning" role="status">
+            Se encontraron roles que no pertenecen al catálogo
+            definido para esta versión. Revisa su origen antes
+            de modificar sus asignaciones.
+        </div>
+    }
+
+    <div class="alert alert-info" role="status">
+        <strong>
+            El registro de un rol y sus permisos son independientes.
+        </strong>
+
+        <p class="mb-0 mt-2">
+            Los roles cuyas funcionalidades están pendientes
+            todavía no cuentan con accesos específicos configurados.
+            Esta pantalla permite consultar su preparación.
+        </p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h2 class="h5 mb-0">
+                Responsabilidades y asignaciones
+            </h2>
+        </div>
+
+        <div class="card-body">
+            @if (Model.Count == 0)
+            {
+                <div class="text-center border rounded p-4">
+                    <h3 class="h6">
+                        No hay roles para mostrar
+                    </h3>
+
+                    <p class="text-muted mb-0">
+                        El catálogo de roles no contiene registros.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <caption class="small text-muted">
+                            Una misma cuenta puede pertenecer
+                            a varios roles. Los usuarios activos
+                            son aquellos habilitados en el portal.
+                        </caption>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    Rol
+                                </th>
+
+                                <th scope="col">
+                                    Responsabilidad
+                                </th>
+
+                                <th scope="col">
+                                    Registro
+                                </th>
+
+                                <th scope="col">
+                                    Accesos
+                                </th>
+
+                                <th scope="col" class="text-end">
+                                    Usuarios asignados
+                                </th>
+
+                                <th scope="col" class="text-end">
+                                    Usuarios activos
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <th scope="row">
+                                        <div class="fw-semibold">
+                                            @item.DisplayName
+                                        </div>
+
+                                        <div class="small text-muted
+                                                    fw-normal">
+                                            @item.Name
+                                        </div>
+                                    </th>
+
+                                    <td>
+                                        @item.Description
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @if (item.IsRegistered)
+                                        {
+                                            <span class="badge bg-success">
+                                                Registrado
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                Pendiente
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @if (!item.IsRecognized)
+                                        {
+                                            <span class="badge bg-secondary">
+                                                No definido
+                                            </span>
+                                        }
+                                        else if (item.AccessConfigured)
+                                        {
+                                            <span class="badge bg-primary">
+                                                Configurados
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                Pendientes
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td class="text-end">
+                                        @item.AssignedUserCount
+                                    </td>
+
+                                    <td class="text-end">
+                                        @item.ActiveAssignedUserCount
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="small text-muted mt-3">
+        La consulta de este módulo está reservada
+        a administradores activos.
+    </div>
+</div>

@@ -1,0 +1,62 @@
+@model Portal.Web.Models.Users.CreateManagedUserViewModel
+@{ ViewData["Title"] = "Crear usuario"; }
+<div class="container py-4 form-page">
+    <div class="page-heading">
+        <p class="section-kicker">ADMINISTRACIÓN / NUEVA CUENTA</p>
+        <h1>Crear usuario</h1>
+        <p class="text-muted">Define el acceso de una persona y las responsabilidades que tendrá en el portal.</p>
+    </div>
+    <form method="post" asp-action="Create" asp-antiforgery="true" class="card" data-busy-form>
+        <div class="card-body">
+            <div asp-validation-summary="All" class="text-danger mb-4" role="alert"></div>
+            <h2 class="order-step-heading"><span class="step-number">01</span> Datos de acceso</h2>
+            <div class="mb-4">
+                <label asp-for="Email" class="form-label">Correo electrónico</label>
+                <input asp-for="Email" class="form-control" autocomplete="off" inputmode="email" placeholder="nombre@empresa.com" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label">Contraseña inicial</label>
+                    <div class="password-field">
+                        <input asp-for="Password" class="form-control" autocomplete="new-password" aria-describedby="password-requirements" />
+                        <button type="button" class="password-toggle" data-password-toggle="Password" aria-label="Mostrar contraseña" aria-pressed="false" hidden><partial name="_Icon" model='@("eye")' /></button>
+                    </div>
+                    <span asp-validation-for="Password" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label">Confirmar contraseña</label>
+                    <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                </div>
+            </div>
+            <p id="password-requirements" class="form-text mb-4">Usa al menos 12 caracteres, una mayúscula, una minúscula, un número y un símbolo.</p>
+            <fieldset class="mb-4">
+                <legend class="order-step-heading"><span class="step-number">02</span> Roles y estado</legend>
+                <p class="form-text mt-0 mb-3">Selecciona los roles que necesita la persona para realizar su trabajo.</p>
+                <div class="row g-2">
+                    @foreach (var role in Model.AvailableRoles)
+                    {
+                        <div class="col-sm-6"><div class="form-check role-option">
+                            <input type="checkbox" name="Roles" value="@role" id="role-@role" checked="@Model.Roles.Contains(role)" class="form-check-input" />
+                            <label for="role-@role" class="form-check-label">@role</label>
+                        </div></div>
+                    }
+                </div>
+                <div class="form-check mt-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">Cuenta activa</label></div>
+            </fieldset>
+            <h2 class="order-step-heading"><span class="step-number">03</span> Registro de la operación</h2>
+            <div class="mb-2">
+                <label asp-for="Reason" class="form-label">Motivo del alta</label>
+                <textarea asp-for="Reason" class="form-control" minlength="5" maxlength="300" rows="3" placeholder="Indica por qué se crea esta cuenta."></textarea>
+                <span asp-validation-for="Reason" class="text-danger"></span>
+                <p class="form-text mb-0">Entre 5 y 300 caracteres. El motivo queda registrado en la auditoría.</p>
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@(Model.AvailableRoles.Count == 0)" data-busy-button data-busy-label="Creando cuenta…">Crear cuenta</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Volver a usuarios</a>
+        </div>
+    </form>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

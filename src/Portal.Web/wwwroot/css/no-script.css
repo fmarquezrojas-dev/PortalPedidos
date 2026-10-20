@@ -1,0 +1,6 @@
+@media (max-width:991.98px) {
+    .portal-sidebar { position:static; width:100%; transform:none; visibility:visible; }
+    .sidebar-navigation { display:flex; gap:20px; flex-wrap:wrap; }
+    .sidebar-bottom { max-width:340px; }
+    .mobile-menu,.sidebar-close { display:none; }
+}

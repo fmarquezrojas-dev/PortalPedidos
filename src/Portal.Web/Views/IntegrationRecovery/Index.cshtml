@@ -1,0 +1,132 @@
+@model Portal.Web.Models.Integration.RecoverIntegrationViewModel
+
+@using Portal.Web.Formatting
+
+@{
+    ViewData["Title"] = "Recuperar integración";
+    var preview = Model.Preview;
+}
+
+<div class="container py-4">
+    <p class="section-kicker">REVISIÓN OPERATIVA</p>
+            <h1 class="h3 mb-3">
+        Recuperar integración del pedido #@preview.PublicNumber
+    </h1>
+
+    <div asp-validation-summary="All"
+         class="text-danger mb-3"
+         role="alert"></div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Cliente</dt>
+                <dd class="col-sm-8">@preview.CustomerName</dd>
+
+                <dt class="col-sm-4">Estado</dt>
+                <dd class="col-sm-8">
+                    @IntegrationStatusDisplay.Label(preview.Status)
+                </dd>
+
+                <dt class="col-sm-4">Último código</dt>
+                <dd class="col-sm-8">
+                    @(preview.LastErrorCode ?? "—")
+                </dd>
+
+                <dt class="col-sm-4">Intentos del ciclo actual</dt>
+                <dd class="col-sm-8">@preview.AttemptCount</dd>
+
+                <dt class="col-sm-4">Ciclo actual</dt>
+                <dd class="col-sm-8">@preview.RecoveryCycle</dd>
+            </dl>
+        </div>
+    </div>
+
+    @if (!preview.CanRecover || Model.RequiresReload)
+    {
+        <div class="alert alert-warning">
+            @(Model.RequiresReload
+                ? "Consulta el estado del mensaje y recarga esta pantalla antes de continuar."
+                : preview.BlockReason)
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="IntegrationRecovery"
+               asp-action="Index"
+               asp-route-id="@Model.MessageId"
+               class="btn btn-outline-primary">
+                Recargar confirmación
+            </a>
+
+            <a asp-controller="Integration"
+               asp-action="Details"
+               asp-route-id="@Model.MessageId"
+               class="btn btn-outline-secondary">
+                Ver seguimiento
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <strong>Se iniciará un nuevo ciclo de recuperación.</strong>
+
+            <p class="mb-0 mt-2">
+                El procesador consultará primero al ERP.
+                Si no encuentra un resultado, podrá reenviar el pedido
+                con la misma clave y el mismo contenido.
+                Los registros anteriores se conservarán.
+            </p>
+        </div>
+
+        <form asp-controller="IntegrationRecovery"
+              asp-action="Confirm"
+              asp-route-id="@Model.MessageId"
+              asp-antiforgery="true"
+              method="post">
+
+            <input asp-for="MessageId" type="hidden" />
+            <input asp-for="RowVersion" type="hidden" />
+
+            <div class="mb-3">
+                <label asp-for="Reason" class="form-label"></label>
+
+                <textarea asp-for="Reason"
+                          class="form-control"
+                          rows="3"
+                          minlength="5"
+                          maxlength="300"
+                          required
+                          placeholder="Ejemplo: se restableció el simulador y se verificó su disponibilidad."></textarea>
+
+                <span asp-validation-for="Reason"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="form-check mb-3">
+                <input asp-for="ConfirmRecovery"
+                       class="form-check-input"
+                       required />
+
+                <label asp-for="ConfirmRecovery"
+                       class="form-check-label">
+                    Revisé el error y corregí su causa.
+                    Autorizo la consulta al ERP y el posible reenvío.
+                </label>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary">
+                    Confirmar recuperación
+                </button>
+
+                <a asp-controller="Integration"
+                   asp-action="Details"
+                   asp-route-id="@Model.MessageId"
+                   class="btn btn-outline-secondary">
+                    Volver sin recuperar
+                </a>
+            </div>
+        </form>
+    }
+</div>

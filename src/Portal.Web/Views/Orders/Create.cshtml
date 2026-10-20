@@ -1,0 +1,398 @@
+@model Portal.Web.Models.Orders.CreateOrderViewModel
+
+@using System.Globalization
+@using System.Linq
+@using Microsoft.AspNetCore.Mvc.Rendering
+
+@{
+    var culture = CultureInfo.GetCultureInfo("es-PE");
+
+    string pageTitle = Model.IsEdit
+        ? $"Editar pedido #{Model.PublicNumber}"
+        : "Nuevo pedido";
+
+    ViewData["Title"] = pageTitle;
+
+    string formAction = Model.IsEdit ? "Edit" : "Create";
+
+    string returnAction = Model.IsEdit ? "Details" : "Index";
+
+    string? orderRouteId = Model.IsEdit
+        ? Model.DraftId.ToString()
+        : null;
+
+    string minimumDate = Model.FormData.TodayInPeru.ToString(
+        "yyyy-MM-dd",
+        CultureInfo.InvariantCulture);
+
+    string savedSubtotal = Model.SavedSubtotal.HasValue
+        ? Model.SavedSubtotal.Value.ToString("N2", culture)
+        : "Sin registro";
+
+    // La lista ya está filtrada por la regla de elegibilidad del servicio.
+    // Este aviso describe la carga del formulario; no sustituye la validación al guardar.
+    bool selectedCustomerUnavailable =
+        Model.CustomerId.HasValue &&
+        Model.CustomerId.Value != Guid.Empty &&
+        !Model.FormData.Customers.Any(
+            customer => customer.Id == Model.CustomerId.Value);
+
+    bool catalogReady =
+        Model.FormData.CatalogVersion > 0 &&
+        Model.FormData.Customers.Count > 0 &&
+        Model.FormData.Products.Count > 0;
+}
+
+<div class="container-fluid py-4">
+    <p class="section-kicker">PREPARACIÓN DEL PEDIDO</p>
+    <div class="order-form-heading mb-2"><h1 class="h3 mb-0">@pageTitle</h1><span class="badge bg-secondary">Borrador · Sin enviar</span></div>
+
+    <p class="text-muted mb-4">
+        @if (Model.IsEdit)
+        {
+            <text>
+                Modifica el borrador y revisa los precios actuales
+                antes de guardar.
+            </text>
+        }
+        else
+        {
+            <text>
+                Guarda un borrador para preparar el pedido.
+                Las existencias se validarán al enviarlo al ERP.
+            </text>
+        }
+    </p>
+
+    @if (selectedCustomerUnavailable)
+    {
+        <div class="alert alert-warning" role="alert">
+            <p class="fw-semibold mb-1">
+                El cliente seleccionado ya no está disponible para pedidos.
+            </p>
+            <p class="mb-0">
+                Selecciona un cliente habilitado antes de guardar.
+                @if (Model.IsEdit)
+                {
+                    <text>
+                        El borrador guardado se conserva; abrir este formulario
+                        no cambia su cliente ni sus líneas.
+                    </text>
+                }
+            </p>
+        </div>
+    }
+
+    @if (!catalogReady)
+    {
+        <div asp-validation-summary="All"
+             class="text-danger mb-3"
+             role="alert"></div>
+        <div class="alert alert-warning" role="alert">
+            Para guardar necesitas un catálogo sincronizado con clientes
+            habilitados para pedidos y productos activos.
+        </div>
+
+        <a asp-controller="Orders"
+           asp-action="@returnAction"
+           asp-route-id="@orderRouteId"
+           class="btn btn-outline-secondary">
+            @(Model.IsEdit ? "Volver al pedido" : "Volver a pedidos")
+        </a>
+    }
+    else
+    {
+        <noscript><div class="alert alert-info">Activa JavaScript para agregar líneas y ver el cálculo referencial del importe. El servidor volverá a validar los datos al guardar.</div></noscript>
+        <form id="create-order-form"
+              asp-controller="Orders"
+              asp-action="@formAction"
+              asp-route-id="@orderRouteId"
+              asp-antiforgery="true"
+              method="post">
+
+            <input asp-for="DraftId" type="hidden" />
+            <input asp-for="CatalogVersion" type="hidden" />
+            <input asp-for="RowVersion" type="hidden" />
+
+            <div asp-validation-summary="All"
+                 class="text-danger mb-3"
+                 role="alert"></div>
+
+            @if (Model.IsEdit)
+            {
+                <div class="alert alert-info">
+                    <p class="mb-2">
+                        Importe guardado antes de esta edición:
+                        <strong>PEN @savedSubtotal</strong>
+                    </p>
+
+                    <p class="mb-2">
+                        El formulario muestra los precios actuales
+                        del catálogo. Al guardar, estos precios se
+                        aplicarán a las líneas del borrador.
+                    </p>
+
+                    <a asp-controller="Orders"
+                       asp-action="Edit"
+                       asp-route-id="@Model.DraftId"
+                       class="alert-link">
+                        Recargar pedido y descartar cambios sin guardar
+                    </a>
+                </div>
+            }
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h2 class="order-step-heading"><span class="step-number">01</span> Cliente y fecha solicitada</h2>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="CustomerId"
+                                   class="form-label"></label>
+
+                            <select asp-for="CustomerId"
+                                    class="form-select"
+                                    aria-describedby="customer-eligibility-help"
+                                    required
+                                    asp-items="@(Model.FormData.Customers.Select(
+                                        customer => new SelectListItem
+                                        {
+                                            Value = customer.Id.ToString(),
+                                            Text = customer.Code + " - " + customer.Name
+                                        }))">
+                                <option value="">
+                                    Selecciona un cliente
+                                </option>
+                            </select>
+
+                            <span asp-validation-for="CustomerId"
+                                  class="text-danger"></span>
+
+                            <p id="customer-eligibility-help"
+                               class="form-text mb-0">
+                                El selector muestra los clientes habilitados
+                                al cargar el formulario. Su disponibilidad
+                                se volverá a comprobar al guardar.
+                            </p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="RequestedDate"
+                                   class="form-label"></label>
+
+                            <input asp-for="RequestedDate"
+                                   asp-format="{0:yyyy-MM-dd}"
+                                   type="date"
+                                   min="@minimumDate"
+                                   class="form-control"
+                                   required />
+
+                            <span asp-validation-for="RequestedDate"
+                                  class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white d-flex flex-wrap
+                            justify-content-between align-items-center gap-2">
+                    <h2 class="order-step-heading mb-0"><span class="step-number">02</span> Productos del pedido</h2>
+
+                    <button id="add-order-line"
+                            type="button"
+                            class="btn btn-sm btn-outline-primary">
+                        Agregar producto
+                    </button>
+                </div>
+
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <span id="order-line-count">@Model.Lines.Count</span> de 100 líneas. Agrega productos distintos.
+                        Las cantidades deben ser enteras entre 1 y 9999.
+                    </p>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Producto</th>
+
+                                    <th scope="col" style="width: 130px;">
+                                        Cantidad
+                                    </th>
+
+                                    <th scope="col" class="text-end">
+                                        Precio PEN
+                                    </th>
+
+                                    <th scope="col" class="text-end">
+                                        Importe PEN
+                                    </th>
+
+                                    <th scope="col" class="text-end">
+                                        Acción
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="order-lines">
+                                @for (int i = 0; i < Model.Lines.Count; i++)
+                                {
+                                    <tr class="order-line">
+                                        <td>
+                                            <select asp-for="Lines[i].ProductId"
+                                                    class="form-select line-product"
+                                                    aria-label="Producto"
+                                                    required>
+                                                <option value="">
+                                                    Selecciona un producto
+                                                </option>
+
+                                                @foreach (var product in Model.FormData.Products)
+                                                {
+                                                    <option value="@product.Id"
+                                                            data-price="@product.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture)">
+                                                        @product.Code - @product.Name
+                                                    </option>
+                                                }
+                                            </select>
+                                        </td>
+
+                                        <td>
+                                            <input asp-for="Lines[i].Quantity"
+                                                   type="number"
+                                                   min="1"
+                                                   max="9999"
+                                                   step="1"
+                                                   required
+                                                   aria-label="Cantidad"
+                                                   class="form-control line-quantity" />
+                                        </td>
+
+                                        <td class="text-end text-nowrap line-price">
+                                            —
+                                        </td>
+
+                                        <td class="text-end text-nowrap line-amount">
+                                            —
+                                        </td>
+
+                                        <td class="text-end">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger remove-line">
+                                                Quitar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="order-total mt-3">
+                        <div class="text-muted">
+                            Importe referencial sin impuestos
+                        </div>
+
+                        <div class="h4">
+                            S/ <span id="order-subtotal">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.IsEdit)
+            {
+                <div class="form-check mb-3">
+                    <input asp-for="AcceptCurrentPrices"
+                           class="form-check-input"
+                           required />
+
+                    <label asp-for="AcceptCurrentPrices"
+                           class="form-check-label">
+                        He revisado los precios actuales y el importe.
+                    </label>
+
+                    <div>
+                        <span asp-validation-for="AcceptCurrentPrices"
+                              class="text-danger"></span>
+                    </div>
+                </div>
+            }
+
+            <p class="small text-muted">
+                Guardar el borrador no reserva existencias ni envía
+                el pedido al ERP.
+            </p>
+
+            <div class="order-actions d-flex flex-wrap gap-2">
+                <button id="save-draft"
+                        type="submit"
+                        class="btn btn-primary">
+                    Guardar borrador
+                </button>
+
+                <a asp-controller="Orders"
+                   asp-action="@returnAction"
+                   asp-route-id="@orderRouteId"
+                   class="btn btn-outline-secondary">
+                    Salir sin guardar
+                </a>
+            </div>
+        </form>
+
+        <template id="order-line-template">
+            <tr class="order-line">
+                <td>
+                    <select class="form-select line-product"
+                            aria-label="Producto"
+                            required>
+                        <option value="">
+                            Selecciona un producto
+                        </option>
+
+                        @foreach (var product in Model.FormData.Products)
+                        {
+                            <option value="@product.Id"
+                                    data-price="@product.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture)">
+                                @product.Code - @product.Name
+                            </option>
+                        }
+                    </select>
+                </td>
+
+                <td>
+                    <input type="number"
+                           value="1"
+                           min="1"
+                           max="9999"
+                           step="1"
+                           required
+                           aria-label="Cantidad"
+                           class="form-control line-quantity" />
+                </td>
+
+                <td class="text-end text-nowrap line-price">
+                    —
+                </td>
+
+                <td class="text-end text-nowrap line-amount">
+                    —
+                </td>
+
+                <td class="text-end">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger remove-line">
+                        Quitar
+                    </button>
+                </td>
+            </tr>
+        </template>
+    }
+</div>
+
+@section Scripts
+{
+    <script src="~/js/orders/create.js"
+            asp-append-version="true"></script>
+}

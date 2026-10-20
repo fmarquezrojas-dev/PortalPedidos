@@ -1,0 +1,209 @@
+@model Portal.Application.DTOs.Integration.IntegrationMonitorPageDto
+
+@using System
+@using Portal.Domain.Enums
+@using Portal.Web.Formatting
+
+@{
+    ViewData["Title"] = "Integraciones";
+}
+
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <p class="section-kicker">SEGUIMIENTO DE ENVÍOS</p>
+            <h1 class="h3 mb-2">Integraciones con el ERP</h1>
+
+        <p class="text-muted mb-0">
+            Consulta los envíos, reintentos y resultados de los pedidos.
+        </p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-controller="Integration"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-3 align-items-end mb-4">
+
+                <div class="col-md-4">
+                    <label for="orderNumber" class="form-label">
+                        Número de pedido
+                    </label>
+
+                    <input id="orderNumber"
+                           name="orderNumber"
+                           type="number"
+                           min="1"
+                           step="1"
+                           value="@Model.OrderNumber"
+                           class="form-control"
+                           placeholder="Ejemplo: 1003" />
+                </div>
+
+                <div class="col-md-4">
+                    <label for="status" class="form-label">
+                        Estado de integración
+                    </label>
+
+                    <select id="status"
+                            name="status"
+                            class="form-select">
+                        <option value="">Todos los estados</option>
+
+                        @foreach (var state in Enum.GetValues<IntegrationStatus>())
+                        {
+                            if (Model.Status == state)
+                            {
+                                <option value="@state" selected>
+                                    @IntegrationStatusDisplay.Label(state)
+                                </option>
+                            }
+                            else
+                            {
+                                <option value="@state">
+                                    @IntegrationStatusDisplay.Label(state)
+                                </option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        Buscar / actualizar
+                    </button>
+
+                    <a asp-controller="Integration"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <span class="text-muted">
+                    Registros encontrados: @Model.TotalCount
+                </span>
+
+                <span class="small text-muted">
+                    Las fechas se muestran en hora de Perú.
+                </span>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="border rounded text-center p-4">
+                    <h2 class="h5">No hay integraciones para mostrar</h2>
+
+                    <p class="text-muted mb-0">
+                        Revisa los filtros o confirma el envío de un pedido.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Pedido</th>
+                                <th scope="col">Cliente</th>
+                                <th scope="col">Integración</th>
+                                <th scope="col" class="text-center">
+                                    Envíos del ciclo
+                                </th>
+                                <th scope="col">
+                                    Próxima revisión · Perú
+                                </th>
+                                <th scope="col">Último código</th>
+                                <th scope="col" class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="fw-semibold text-nowrap">
+                                        #@item.PublicNumber
+                                    </td>
+
+                                    <td>@item.CustomerName</td>
+
+                                    <td>
+                                        <span class="badge @IntegrationStatusDisplay.CssClass(item.Status)">
+                                            @IntegrationStatusDisplay.Label(item.Status)
+                                        </span>
+                                    </td>
+
+                                    <td class="text-center">
+                                        @item.AttemptCount <span class="small text-muted">· Histórico: @item.RecordedHttpAttempts</span>
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @if (IntegrationStatusDisplay.HasScheduledWork(item.Status))
+                                        {
+                                            @PortalDateTime.Format(item.NextAttemptAtUtc)
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+
+                                    <td class="text-break">
+                                        @(string.IsNullOrWhiteSpace(item.LastErrorCode)
+                                            ? "—"
+                                            : item.LastErrorCode)
+                                    </td>
+
+                                    <td class="text-end">
+                                        <a asp-controller="Integration"
+                                           asp-action="Details"
+                                           asp-route-id="@item.MessageId"
+                                           class="btn btn-sm btn-outline-primary text-nowrap">
+                                            Ver seguimiento
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+                <span class="text-muted">
+                    Página @Model.PageNumber de @Model.TotalPages
+                </span>
+
+                <div class="d-flex gap-2">
+                    @if (Model.HasPreviousPage)
+                    {
+                        <a asp-controller="Integration"
+                           asp-action="Index"
+                           asp-route-orderNumber="@Model.OrderNumber"
+                           asp-route-status="@Model.Status"
+                           asp-route-pageNumber="@(Model.PageNumber - 1)"
+                           class="btn btn-outline-primary">
+                            Anterior
+                        </a>
+                    }
+
+                    @if (Model.HasNextPage)
+                    {
+                        <a asp-controller="Integration"
+                           asp-action="Index"
+                           asp-route-orderNumber="@Model.OrderNumber"
+                           asp-route-status="@Model.Status"
+                           asp-route-pageNumber="@(Model.PageNumber + 1)"
+                           class="btn btn-outline-primary">
+                            Siguiente
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

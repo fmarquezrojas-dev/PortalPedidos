@@ -1,0 +1,50 @@
+@model Portal.Application.DTOs.Audit.AuditPageDto
+@using System.Globalization
+@using Portal.Web.Formatting
+@{
+    ViewData["Title"] = "Auditoría";
+    var f = Model.Filters;
+    var route = new Dictionary<string, string>
+    {
+        ["search"] = f.Search ?? "", ["module"] = f.Module ?? "", ["eventCode"] = f.EventCode ?? "",
+        ["actorType"] = f.ActorType ?? "", ["from"] = f.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "",
+        ["to"] = f.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "", ["correlationId"] = f.CorrelationId?.ToString() ?? ""
+    };
+}
+<div>
+    <div class="page-heading"><p class="section-kicker">TRAZABILIDAD</p><h1>Auditoría del portal</h1><p class="text-muted mb-0">Revisa las operaciones registradas por las personas y los procesos automáticos.</p></div>
+    <div class="card"><div class="card-body">
+        <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+        <form asp-controller="Audit" asp-action="Index" method="get" class="row g-3 mb-4">
+            <div class="col-lg-6"><label for="search" class="form-label">Correo, código de evento o identificador</label><input id="search" name="search" value="@f.Search" maxlength="100" class="form-control" placeholder="Busca por correo o referencia…" /></div>
+            <div class="col-md-6 col-lg-3"><label for="from" class="form-label">Desde · Perú</label><input type="date" id="from" name="from" value="@route["from"]" max="9998-12-31" class="form-control" /></div>
+            <div class="col-md-6 col-lg-3"><label for="to" class="form-label">Hasta · Perú</label><input type="date" id="to" name="to" value="@route["to"]" max="9998-12-31" class="form-control" /></div>
+            <div class="col-md-4"><label for="module" class="form-label">Módulo</label><select name="module" id="module" class="form-select"><option value="">Todos los módulos</option>
+                @foreach (var option in new[] { ("Order", "Pedidos"), ("Integration", "Integraciones"), ("CustomerPortfolio", "Cartera"), ("SalesTeam", "Equipos"), ("User", "Usuarios") }) { <option value="@option.Item1" selected="@(f.Module == option.Item1)">@option.Item2</option> }
+            </select></div>
+            <div class="col-md-4"><label for="actorType" class="form-label">Responsable</label><select id="actorType" name="actorType" class="form-select"><option value="">Todos</option><option value="User" selected="@(f.ActorType == "User")">Usuario</option><option value="System" selected="@(f.ActorType == "System")">Proceso automático</option></select></div>
+            <div class="col-md-4"><label for="eventCode" class="form-label">Acción</label><select id="eventCode" name="eventCode" class="form-select"><option value="">Todas las acciones</option>
+                @foreach (var option in AuditDisplay.Actions.OrderBy(item => item.Value)) { <option value="@option.Key" selected="@(f.EventCode == option.Key)">@option.Value</option> }
+                @if (!string.IsNullOrEmpty(f.EventCode) && !AuditDisplay.Actions.ContainsKey(f.EventCode)) { <option value="@f.EventCode" selected>@f.EventCode</option> }
+            </select></div>
+            <div class="col-lg-8"><label for="correlationId" class="form-label">Referencia de seguimiento (opcional)</label><input id="correlationId" name="correlationId" value="@f.CorrelationId" class="form-control" maxlength="36" placeholder="GUID del proceso que necesitas revisar" /></div>
+            <div class="col-lg-4 d-flex flex-wrap align-items-end gap-2"><button class="btn btn-primary" type="submit">Aplicar filtros</button><a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a></div>
+        </form>
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><span class="small text-muted">@Model.TotalCount eventos encontrados</span><span class="small text-muted">Registro de consulta · Fechas en hora de Perú</span></div>
+        @if (Model.Items.Count == 0) { <div class="text-center border rounded p-5"><h2 class="h5">No hay eventos con estos filtros</h2><p class="text-muted mb-0">Amplía el rango de fechas o prueba con otra acción.</p></div> }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th scope="col">Fecha · Perú</th><th scope="col">Responsable</th><th scope="col">Operación</th><th scope="col">Registro afectado</th><th scope="col" class="text-end">Detalle</th></tr></thead><tbody>
+                @foreach (var item in Model.Items)
+                {
+                    string actor = item.ActorType == "System" ? "Proceso automático" : item.ActorEmail ?? item.ActorUserId ?? "Usuario no disponible";
+                    <tr><td class="text-nowrap">@PortalDateTime.Format(item.OccurredAtUtc)</td><td class="text-break"><div>@actor</div><small class="text-muted">@AuditDisplay.Actor(item.ActorType)</small></td><td><span class="badge @AuditDisplay.Badge(item.Action)">@AuditDisplay.Action(item.Action)</span></td><td><div>@AuditDisplay.Entity(item.EntityType)</div><small class="text-muted text-break">@item.EntityId</small></td><td class="text-end"><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Ver evento @item.Id">Ver detalle</a></td></tr>
+                }
+            </tbody></table></div>
+        }
+        <nav aria-label="Páginas de auditoría" class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4"><span class="small text-muted">Página @Model.PageNumber de @Model.TotalPages</span><div class="d-flex gap-2">
+            @if (Model.HasPreviousPage) { <a asp-action="Index" asp-all-route-data="@route" asp-route-pageNumber="@(Model.PageNumber - 1)" class="btn btn-outline-secondary">Anterior</a> }
+            @if (Model.HasNextPage) { <a asp-action="Index" asp-all-route-data="@route" asp-route-pageNumber="@(Model.PageNumber + 1)" class="btn btn-outline-secondary">Siguiente</a> }
+        </div></nav>
+    </div></div>
+</div>

@@ -1,0 +1,459 @@
+@model Portal.Application.DTOs.Customers.CustomerDirectoryPageDto
+
+@using Microsoft.AspNetCore.Authorization
+@using Portal.Infrastructure.Identity
+@using Portal.Web.Formatting
+@using Portal.Web.Security
+
+@inject IAuthorizationService AuthorizationService
+
+@{
+    ViewData["Title"] = "Clientes";
+
+    bool canManagePortfolio =
+        User.Identity?.IsAuthenticated == true &&
+        User.IsInRole(AppRoles.Admin);
+
+    bool canCreateOrders = (
+        await AuthorizationService.AuthorizeAsync(
+            User,
+            AppPolicies.CreateOrders)
+    ).Succeeded;
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <p class="section-kicker">DIRECTORIO DE CLIENTES</p>
+            <h1 class="h3 mb-2">Clientes</h1>
+
+            <p class="text-muted mb-0">
+                Consulta los clientes sincronizados desde el ERP
+                y su disponibilidad para pedidos.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            @if (canCreateOrders)
+            {
+                <a asp-controller="Orders"
+                   asp-action="Create"
+                   class="btn btn-primary">
+                    Nuevo pedido
+                </a>
+            }
+
+            @if (canManagePortfolio)
+            {
+                <a asp-controller="CustomerPortfolio"
+                   asp-action="Index"
+                   class="btn btn-outline-primary">
+                    Cartera comercial
+                </a>
+            }
+
+            <a asp-controller="Customers"
+               asp-action="Index"
+               asp-route-search="@Model.Search"
+               asp-route-isActive="@Model.IsActive"
+               asp-route-pageNumber="@Model.PageNumber"
+               class="btn btn-outline-secondary">
+                Actualizar listado
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="small text-muted">
+                        Última sincronización correcta · Perú
+                    </div>
+
+                    <div class="fw-semibold">
+                        @(Model.LastSuccessAtUtc.HasValue
+                            ? PortalDateTime.Format(Model.LastSuccessAtUtc)
+                            : "Todavía no registrada")
+                    </div>
+                </div>
+
+                <div>
+                    @if (Model.CatalogIsFresh)
+                    {
+                        <span class="badge bg-success">
+                            Catálogo actualizado
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">
+                            Requiere actualización
+                        </span>
+                    }
+                </div>
+            </div>
+
+            @if (!Model.CatalogIsFresh)
+            {
+                <p class="small text-muted mt-3 mb-0">
+                    Los datos mostrados corresponden a la copia
+                    disponible en el portal. Una nueva sincronización
+                    puede modificar nombres, estados y disponibilidad.
+                    El envío de pedidos requiere un catálogo vigente.
+                </p>
+            }
+        </div>
+    </div>
+
+    @if (canManagePortfolio)
+    {
+        <div class="alert alert-info mb-4" role="status">
+            <div class="fw-semibold mb-1">
+                Cartera de clientes
+            </div>
+
+            <p class="mb-0">
+                Abre «Responsable comercial» para consultar, asignar,
+                cambiar o retirar al vendedor responsable y revisar
+                el historial de asignaciones.
+            </p>
+        </div>
+    }
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-controller="Customers"
+                  asp-action="Index"
+                  method="get"
+                  class="row g-3 align-items-end mb-4">
+
+                <div class="col-lg-6">
+                    <label for="search" class="form-label">
+                        Código ERP o nombre del cliente
+                    </label>
+
+                    <input id="search"
+                           name="search"
+                           value="@Model.Search"
+                           maxlength="100"
+                           class="form-control"
+                           placeholder="Ejemplo: C001 o parte del nombre" />
+                </div>
+
+                <div class="col-lg-3">
+                    <label for="isActive" class="form-label">
+                        Estado
+                    </label>
+
+                    <select id="isActive"
+                            name="isActive"
+                            class="form-select">
+                        @if (!Model.IsActive.HasValue)
+                        {
+                            <option value="" selected>
+                                Todos
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="">
+                                Todos
+                            </option>
+                        }
+
+                        @if (Model.IsActive == true)
+                        {
+                            <option value="true" selected>
+                                Activos
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="true">
+                                Activos
+                            </option>
+                        }
+
+                        @if (Model.IsActive == false)
+                        {
+                            <option value="false" selected>
+                                Inactivos
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="false">
+                                Inactivos
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-lg-3 d-flex gap-2">
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Buscar
+                    </button>
+
+                    <a asp-controller="Customers"
+                       asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <span class="text-muted">
+                    Clientes encontrados: @Model.TotalCount
+                </span>
+
+                <span class="small text-muted">
+                    @Model.PageSize registros por página
+                </span>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="border rounded text-center p-5">
+                    <h2 class="h5">
+                        No hay clientes para mostrar
+                    </h2>
+
+                    @if (Model.HasFilters)
+                    {
+                        <p class="text-muted mb-0">
+                            Prueba con otro nombre, código o estado.
+                        </p>
+                    }
+                    else if (!Model.LastSuccessAtUtc.HasValue)
+                    {
+                        <p class="text-muted mb-0">
+                            Los clientes aparecerán después
+                            de sincronizar el catálogo del ERP.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">
+                            El catálogo consultado no contiene clientes.
+                            Revisa los datos del ERP y la sincronización.
+                        </p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <caption class="visually-hidden">
+                            Clientes del catálogo, estado y disponibilidad
+                            para pedidos.
+                        </caption>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    Código ERP
+                                </th>
+
+                                <th scope="col">
+                                    Cliente
+                                </th>
+
+                                <th scope="col">
+                                    Estado
+                                </th>
+
+                                <th scope="col">
+                                    Disponibilidad para pedidos
+                                </th>
+
+                                <th scope="col">
+                                    Actualización · Perú
+                                </th>
+
+                                @if (canCreateOrders)
+                                {
+                                    <th scope="col" class="text-end">
+                                        Pedido
+                                    </th>
+                                }
+
+                                @if (canManagePortfolio)
+                                {
+                                    <th scope="col" class="text-end">
+                                        Gestión comercial
+                                    </th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var customer in Model.Items)
+                            {
+                                <tr>
+                                    <td class="fw-semibold text-nowrap">
+                                        @customer.ExternalCode
+                                    </td>
+
+                                    <td>
+                                        @customer.Name
+                                    </td>
+
+                                    <td>
+                                        @if (customer.IsActive)
+                                        {
+                                            <span class="badge bg-success">
+                                                Activo
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                Inactivo
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @if (customer.IsEligibleForOrders)
+                                        {
+                                            <span class="badge bg-success">
+                                                Habilitado
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">
+                                                No habilitado
+                                            </span>
+
+                                            <div class="small text-muted mt-1">
+                                                @(string.IsNullOrWhiteSpace(
+                                                    customer.EligibilityMessage)
+                                                    ? "El cliente no está disponible para pedidos."
+                                                    : customer.EligibilityMessage)
+                                            </div>
+                                        }
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        @PortalDateTime.Format(
+                                            customer.UpdatedAtUtc)
+                                    </td>
+
+                                    @if (canCreateOrders)
+                                    {
+                                        <td class="text-end">
+                                            @if (customer.IsEligibleForOrders)
+                                            {
+                                                <a asp-controller="Orders"
+                                                   asp-action="Create"
+                                                   asp-route-customerId="@customer.Id"
+                                                   class="btn btn-sm btn-primary text-nowrap"
+                                                   aria-label="@($"Crear pedido para {customer.Name}")">
+                                                    Nuevo pedido
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="small text-muted">
+                                                    No disponible
+                                                </span>
+                                            }
+                                        </td>
+                                    }
+
+                                    @if (canManagePortfolio)
+                                    {
+                                        <td class="text-end">
+                                            <a asp-controller="CustomerPortfolio"
+                                               asp-action="Details"
+                                               asp-route-id="@customer.Id"
+                                               class="btn btn-sm btn-outline-primary"
+                                               aria-label="@($"Gestionar responsable comercial de {customer.Name}")">
+                                                Responsable comercial
+                                            </a>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="small text-muted mb-0">
+                    La disponibilidad corresponde al catálogo consultado.
+                    Crear, editar, copiar y enviar pedidos vuelve a validar
+                    al cliente en el servidor. Cada operación requiere
+                    además los permisos correspondientes.
+                </p>
+
+                <p class="small text-muted mt-2 mb-0">
+                    Un cliente habilitado puede utilizarse en pedidos,
+                    sujeto a las demás validaciones. El envío también
+                    comprueba la vigencia del catálogo, los productos,
+                    los precios y las existencias.
+                </p>
+
+                @if (canManagePortfolio)
+                {
+                    <p class="small text-muted mt-2 mb-0">
+                        También puedes consultar la cartera de clientes
+                        inactivos y retirar su asignación. Para asignar
+                        un nuevo responsable, el cliente debe estar activo.
+                    </p>
+                }
+            }
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
+                <div class="text-muted">
+                    <div>
+                        Página @Model.PageNumber de @Model.TotalPages
+                    </div>
+
+                    @if (Model.Items.Count > 0)
+                    {
+                        <div class="small">
+                            Mostrando @Model.FirstItemNumber
+                            a @Model.LastItemNumber
+                            de @Model.TotalCount
+                        </div>
+                    }
+                </div>
+
+                <nav aria-label="Paginación de clientes">
+                    <div class="d-flex gap-2">
+                        @if (Model.HasPreviousPage)
+                        {
+                            <a asp-controller="Customers"
+                               asp-action="Index"
+                               asp-route-search="@Model.Search"
+                               asp-route-isActive="@Model.IsActive"
+                               asp-route-pageNumber="@(Model.PageNumber - 1)"
+                               class="btn btn-outline-primary"
+                               rel="prev">
+                                Anterior
+                            </a>
+                        }
+
+                        @if (Model.HasNextPage)
+                        {
+                            <a asp-controller="Customers"
+                               asp-action="Index"
+                               asp-route-search="@Model.Search"
+                               asp-route-isActive="@Model.IsActive"
+                               asp-route-pageNumber="@(Model.PageNumber + 1)"
+                               class="btn btn-outline-primary"
+                               rel="next">
+                                Siguiente
+                            </a>
+                        }
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>

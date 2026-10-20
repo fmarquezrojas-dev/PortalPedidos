@@ -1,0 +1,40 @@
+@model Portal.Web.Models.Users.EditManagedUserViewModel
+@{ ViewData["Title"] = "Administrar usuario"; }
+<div class="container py-4 form-page">
+    <div class="page-heading"><p class="section-kicker">ADMINISTRACIÓN / CUENTA</p><h1>Administrar usuario</h1><p class="text-muted text-break">@Model.Email</p></div>
+    @if (TempData["SuccessMessage"] is string message) { <div class="alert alert-success" role="status">@message</div> }
+    @if (Model.RequiresReload)
+    {
+        <div class="alert alert-warning" role="alert"><strong>Revisa la versión actual de esta cuenta.</strong><p class="mb-2">La información cambió o requiere una revisión antes de guardar.</p><a asp-action="Edit" asp-route-id="@Model.Id" class="alert-link">Recargar cuenta</a></div>
+    }
+    <form method="post" asp-action="Edit" asp-route-id="@Model.Id" asp-antiforgery="true" class="card" data-busy-form>
+        <input asp-for="Id" type="hidden" /><input asp-for="ExpectedConcurrencyStamp" type="hidden" />
+        <div class="card-body">
+            <div asp-validation-summary="All" class="text-danger mb-4" role="alert"></div>
+            <fieldset class="mb-4">
+                <legend class="order-step-heading"><span class="step-number">01</span> Roles y estado</legend>
+                <div class="row g-2">
+                    @foreach (var role in Model.AvailableRoles)
+                    {
+                        <div class="col-sm-6"><div class="form-check role-option">
+                            <input type="checkbox" name="Roles" value="@role" id="role-@role" checked="@Model.Roles.Contains(role)" class="form-check-input" />
+                            <label for="role-@role" class="form-check-label">@role</label>
+                        </div></div>
+                    }
+                </div>
+                <div class="form-check mt-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">Cuenta activa</label></div>
+            </fieldset>
+            <div class="alert alert-info"><strong>Los cambios se aplican a los accesos.</strong><p class="mb-0 mt-1">Cambiar roles o estado invalida las sesiones existentes. Los pedidos, equipos y asignaciones históricas se conservan. No puedes desactivar tu propia cuenta ni retirar tu rol Administrador.</p></div>
+            <h2 class="order-step-heading"><span class="step-number">02</span> Registro de la operación</h2>
+            <label asp-for="Reason" class="form-label">Motivo del cambio</label>
+            <textarea asp-for="Reason" class="form-control" minlength="5" maxlength="300" rows="3" placeholder="Explica el cambio de acceso."></textarea>
+            <span asp-validation-for="Reason" class="text-danger"></span>
+            <p class="form-text mb-0">Entre 5 y 300 caracteres. El motivo queda registrado en la auditoría.</p>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@(Model.RequiresReload || Model.AvailableRoles.Count == 0)" data-busy-button data-busy-label="Guardando accesos…">Guardar accesos</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Volver a usuarios</a>
+        </div>
+    </form>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

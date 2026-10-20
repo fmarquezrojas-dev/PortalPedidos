@@ -1,0 +1,120 @@
+@model Portal.Web.Models.Teams.CreateSalesTeamViewModel
+
+@{
+    ViewData["Title"] = "Crear equipo";
+}
+
+<div class="container py-4">
+    <p class="section-kicker">ORGANIZACIÓN COMERCIAL</p>
+            <h1 class="h3 mb-2">Crear equipo comercial</h1>
+
+    <p class="text-muted mb-4">
+        Define el equipo y la cuenta responsable de supervisarlo.
+    </p>
+
+    <form asp-controller="Teams"
+          asp-action="Create"
+          method="post"
+          asp-antiforgery="true">
+
+        <div asp-validation-summary="All"
+             class="text-danger mb-3"
+             role="alert"></div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="Code"
+                               class="form-label"></label>
+
+                        <input asp-for="Code"
+                               class="form-control"
+                               maxlength="20"
+                               placeholder="LIMA-NORTE"
+                               required />
+
+                        <span asp-validation-for="Code"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-8">
+                        <label asp-for="Name"
+                               class="form-label"></label>
+
+                        <input asp-for="Name"
+                               class="form-control"
+                               maxlength="120"
+                               placeholder="Equipo comercial Lima Norte"
+                               required />
+
+                        <span asp-validation-for="Name"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="SupervisorEmail"
+                               class="form-label"></label>
+
+                        <input asp-for="SupervisorEmail"
+                               type="email"
+                               class="form-control"
+                               maxlength="256"
+                               required />
+
+                        <div class="form-text">
+                            Debe corresponder a una cuenta existente
+                            y activa del portal.
+                        </div>
+
+                        <span asp-validation-for="SupervisorEmail"
+                              class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            Si la cuenta seleccionada no es administradora
+            y todavía no tiene el rol Supervisor comercial,
+            esta operación se lo asignará.
+
+            <p class="mb-0 mt-2">
+                Sus roles anteriores se conservarán.
+                Cuando se agregue el nuevo rol, deberá iniciar
+                sesión nuevamente.
+            </p>
+        </div>
+
+        <div class="form-check mb-4">
+            <input asp-for="ConfirmSupervisorAssignment"
+                   class="form-check-input"
+                   required />
+
+            <label asp-for="ConfirmSupervisorAssignment"
+                   class="form-check-label">
+                Confirmo la cuenta responsable y la asignación
+                del rol cuando corresponda.
+            </label>
+
+            <span asp-validation-for="ConfirmSupervisorAssignment"
+                  class="text-danger d-block"></span>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                Crear equipo
+            </button>
+
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Volver sin guardar
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}
