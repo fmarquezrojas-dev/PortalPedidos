@@ -12,6 +12,7 @@ Desarrollado con **ASP.NET Core MVC, C#, Entity Framework Core y SQL Server**, c
 
 ## Contenido
 
+- [Vista previa](#vista-previa)
 - [Problema que resuelve](#problema-que-resuelve)
 - [Funcionalidades](#funcionalidades)
 - [Integración y decisiones técnicas](#integración-y-decisiones-técnicas)
@@ -22,6 +23,41 @@ Desarrollado con **ASP.NET Core MVC, C#, Entity Framework Core y SQL Server**, c
 - [Diagnóstico](#diagnóstico)
 - [Alcance y próximos pasos](#alcance-y-próximos-pasos)
 - [Autor](#autor)
+
+## Vista previa
+
+### Panel principal — modo claro
+
+![Panel principal de PortalPedidos en modo claro](docs/IMAGES/dashboard%20light.png)
+
+### Panel principal — modo oscuro
+
+![Panel principal de PortalPedidos en modo oscuro](docs/IMAGES/dashboard%20night.png)
+
+<details>
+<summary><strong>Ver gestión de pedidos e integración con el ERP</strong></summary>
+
+### Crear un pedido
+
+![Formulario de creación de pedidos](docs/IMAGES/Nuevo%20Pedido.png)
+
+### Detalle del pedido
+
+![Detalle del pedido](docs/IMAGES/Pedido%20detalle.png)
+
+### Monitor de integraciones
+
+![Monitor de integraciones con el ERP](docs/IMAGES/Integraciones%20de%20ERP.png)
+
+### Detalle de la integración
+
+![Detalle de integración del pedido](docs/IMAGES/Detalle%20Integ%20Pedido.png)
+
+### Referencia del pedido en el ERP
+
+![Referencia ERP del pedido](docs/IMAGES/Referencia%20ERP%20Pedido.png)
+
+</details>
 
 ## Problema que resuelve
 
@@ -428,6 +464,7 @@ La comprobación del proceso no garantiza por sí sola que SQL Server o la integ
 - Administración comercial y de usuarios.
 - Asistente de búsqueda basado en reglas.
 - Interfaz con modo claro y oscuro.
+- Galería de capturas del portal y de la integración.
 
 ### Pendientes de consolidación
 
@@ -435,7 +472,7 @@ La comprobación del proceso no garantiza por sí sola que SQL Server o la integ
 - Pruebas automatizadas de autorización, concurrencia e integración.
 - Verificación de reintentos y respuestas perdidas.
 - Automatización de compilación mediante GitHub Actions.
-- Capturas y video de demostración.
+- Video de demostración.
 - Medición de rendimiento con datos representativos.
 - Documentación y preparación de un despliegue público.
 
@@ -458,3 +495,4 @@ GitHub: [@fmarquezrojas-dev](https://github.com/fmarquezrojas-dev)
 ---
 
 Proyecto de portafolio enfocado en gestión comercial, trazabilidad e integración entre sistemas.
+
