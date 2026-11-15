@@ -1,4 +1,5 @@
 using System;
+using PortalPedidos.Hosting;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -18,9 +19,16 @@ using Microsoft.Extensions.Logging;
 
 // 1. Detectar el comando de carga inicial.
 bool seedCatalog = args.Contains("--seed-catalog");
+bool demoMigrate = args.Contains("--demo-migrate");
+if (demoMigrate && seedCatalog)
+    throw new InvalidOperationException("Run migration and seed commands separately.");
 
 var builder = WebApplication.CreateBuilder(
-    args.Where(arg => arg != "--seed-catalog").ToArray());
+    args.Where(arg => arg != "--seed-catalog" && arg != "--demo-migrate").ToArray());
+
+bool dockerDemo = DockerDemo.Configure(builder, "ErpSimulatorDb", "ErpSimulatorDockerDemo");
+if (demoMigrate && !dockerDemo)
+    throw new InvalidOperationException("--demo-migrate requires Docker demo mode.");
 
 builder.Services.AddHealthChecks().AddCheck<SimulatorDatabaseHealthCheck>(
     "simulator_database", failureStatus: HealthStatus.Unhealthy,
@@ -50,6 +58,13 @@ builder.Services.AddScoped<ErpOrderService>();
 
 // 6. Construir la aplicación.
 var app = builder.Build();
+
+if (demoMigrate)
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<ErpSimulatorDbContext>().Database.MigrateAsync();
+    return;
+}
 
 // 7. Ejecutar la carga inicial solo mediante comando.
 if (seedCatalog)

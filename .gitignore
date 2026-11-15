@@ -23,3 +23,18 @@ artifacts/
 *.bak
 *.mdf
 *.ldf
+
+# Isolated Docker demonstration credentials, certificates and test results
+.docker-local/
+
+# Local continuity notes, Python caches and personal deployment/data artifacts
+/HANDOFF.md
+**/__pycache__/
+*.pyc
+**/Properties/PublishProfiles/
+*.pem
+*.db
+*.sqlite
+*.sqlite3
+*.bacpac
+*.dump

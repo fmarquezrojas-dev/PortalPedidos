@@ -1,0 +1,96 @@
+name: portalpedidos-demo
+
+x-app-environment: &app-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  PORTAL_DOCKER_DEMO: "true"
+  ASPNETCORE_URLS: https://+:8443
+  ASPNETCORE_Kestrel__Certificates__Default__Path: /https/server.pfx
+  Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+
+services:
+  setup:
+    profiles: [tools]
+    image: ${COMPOSE_PROJECT_NAME:-portalpedidos-demo}-erp:local
+    user: "0:0"
+    entrypoint: [/bin/bash, /setup.sh]
+    volumes:
+      - ./.docker-local:/output
+      - ./docker/setup.sh:/setup.sh:ro
+      - portal-keys:/keys
+
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-CU22-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+    entrypoint: [/bin/bash, /sql-entrypoint.sh]
+    volumes:
+      - sql-data:/var/opt/mssql
+      - ./docker/sql-entrypoint.sh:/sql-entrypoint.sh:ro
+      - ./docker/mssql.conf:/var/opt/mssql/mssql.conf:ro
+      - ./.docker-local/sql.crt:/run/secrets/sql.crt:ro
+      - ./.docker-local/sql.key:/run/secrets/sql.key:ro
+    secrets: [sql-password]
+    healthcheck:
+      test: [CMD-SHELL, 'SQLCMDPASSWORD="$$(cat /run/secrets/sql-password)" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q "SELECT 1" -o /dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  erp:
+    image: ${COMPOSE_PROJECT_NAME:-portalpedidos-demo}-erp:local
+    build:
+      context: .
+      dockerfile: src/ErpSimulator.Api/Dockerfile
+    environment: *app-environment
+    volumes:
+      - ./.docker-local/erp.pfx:/https/server.pfx:ro
+      - ./.docker-local/ca.crt:/https/ca.crt:ro
+    secrets:
+      - source: erp-config
+        target: demo.json
+    depends_on:
+      sql:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --cacert, /https/ca.crt, https://localhost:8443/health/ready]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  portal:
+    image: ${COMPOSE_PROJECT_NAME:-portalpedidos-demo}-portal:local
+    build:
+      context: .
+      dockerfile: src/Portal.Web/Dockerfile
+    environment: *app-environment
+    ports:
+      - "127.0.0.1:${PORTAL_HTTPS_PORT:-8271}:8443"
+    volumes:
+      - ./.docker-local/portal.pfx:/https/server.pfx:ro
+      - ./.docker-local/ca.crt:/https/ca.crt:ro
+      - portal-keys:/var/portal-keys
+    secrets:
+      - source: portal-config
+        target: demo.json
+    depends_on:
+      erp:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --cacert, /https/ca.crt, https://localhost:8443/health/ready]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+secrets:
+  sql-password:
+    file: ./.docker-local/sql-password
+  erp-config:
+    file: ./.docker-local/erp.json
+  portal-config:
+    file: ./.docker-local/portal.json
+
+volumes:
+  sql-data:
+  portal-keys:

@@ -1,4 +1,7 @@
 using System;
+using Microsoft.AspNetCore.DataProtection;
+using System.Security.Cryptography.X509Certificates;
+using PortalPedidos.Hosting;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -47,11 +50,13 @@ using Portal.Infrastructure.Services.Customers;
 // ============================================================
 
 bool seedRoles = args.Contains("--seed-roles");
+bool demoMigrate = args.Contains("--demo-migrate");
 bool seedUsers = args.Contains("--seed-users");
 bool checkErp = args.Contains("--check-erp");
 bool syncCatalog = args.Contains("--sync-catalog");
 
 bool isMaintenanceCommand =
+    demoMigrate ||
     seedRoles ||
     seedUsers ||
     checkErp ||
@@ -60,6 +65,7 @@ bool isMaintenanceCommand =
 // La creación de roles y usuarios puede ejecutarse conjuntamente.
 // Las operaciones del catálogo deben ejecutarse por separado.
 int commandGroups =
+    (demoMigrate ? 1 : 0) +
     (seedRoles || seedUsers ? 1 : 0) +
     (checkErp ? 1 : 0) +
     (syncCatalog ? 1 : 0);
@@ -74,11 +80,36 @@ if (commandGroups > 1)
 // Excluir nuestros comandos personalizados de la configuración.
 var builder = WebApplication.CreateBuilder(
     args.Where(arg =>
+        arg != "--demo-migrate" &&
         arg != "--seed-roles" &&
         arg != "--seed-users" &&
         arg != "--check-erp" &&
         arg != "--sync-catalog")
     .ToArray());
+
+bool dockerDemo = DockerDemo.Configure(builder, "PortalDb", "PortalPedidosDockerDemo");
+if (demoMigrate && !dockerDemo)
+    throw new InvalidOperationException("--demo-migrate requires Docker demo mode.");
+
+if (dockerDemo)
+{
+    var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+        "/https/server.pfx", builder.Configuration["Kestrel:Certificates:Default:Password"]);
+    builder.Services.AddDataProtection()
+        .SetApplicationName("PortalPedidos.DockerDemo")
+        .PersistKeysToFileSystem(new DirectoryInfo("/var/portal-keys"))
+        .ProtectKeysWithCertificate(certificate);
+    builder.Services.AddAntiforgery(options =>
+    {
+        options.Cookie.Name = "PortalPedidos.Demo.Antiforgery";
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    });
+    builder.Services.Configure<Microsoft.AspNetCore.Mvc.CookieTempDataProviderOptions>(options =>
+    {
+        options.Cookie.Name = "PortalPedidos.Demo.TempData";
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    });
+}
 
 // ============================================================
 // 2. Registrar MVC y el acceso al contexto HTTP.
@@ -149,7 +180,7 @@ builder.Services
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "PortalPedidos.Auth";
+    options.Cookie.Name = dockerDemo ? "PortalPedidos.Demo.Auth" : "PortalPedidos.Auth";
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
@@ -438,6 +469,13 @@ builder.Services.AddScoped<
 // Todos los registros de servicios deben estar antes de esta línea.
 var app = builder.Build();
 
+if (demoMigrate)
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<PortalDbContext>().Database.MigrateAsync();
+    return;
+}
+
 // ============================================================
 // 13. Restringir los comandos al entorno Development.
 // ============================================================
@@ -652,7 +690,13 @@ if (seedRoles || seedUsers)
             string password = string.Empty;
 
             // Solicitar contraseña únicamente para cuentas nuevas.
-            if (existingUser is null)
+            if (existingUser is null && dockerDemo)
+            {
+                password = File.ReadAllText("/run/secrets/seed-password").Trim();
+                if (string.IsNullOrWhiteSpace(password))
+                    throw new InvalidOperationException("A demo seed password is required.");
+            }
+            else if (existingUser is null)
             {
                 Console.WriteLine();
 
