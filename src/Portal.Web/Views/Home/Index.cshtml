@@ -12,9 +12,7 @@
 }
 <div>
     <section class="home-welcome">
-        <p class="eyebrow">TU ESPACIO DE TRABAJO</p>
-        <h1>Una vista clara.<br />Tu siguiente paso.</h1>
-        <p class="text-muted mt-3 mb-4">Accede a tus pedidos, consulta el catálogo y mantén tu operación al día.</p>
+        <h1>Mi espacio comercial</h1>
         <div class="d-flex flex-wrap gap-2">
             @if (canViewOrders) { <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary">Abrir resumen <partial name="_Icon" model='@("arrow")' /></a> }
             @if (canCreateOrders) { <a asp-controller="Orders" asp-action="Create" class="btn btn-outline-primary">Crear un pedido</a> }
@@ -29,7 +27,7 @@
         }
             <div class="col-md-6"><a class="quick-link" asp-controller="Catalog" asp-action="Index"><partial name="_Icon" model='@("box")' /><span><strong>Catálogo</strong><small>Consulta productos, precios y existencias.</small></span><partial name="_Icon" model='@("arrow")' /></a></div>
         @if (canViewTeams) { <div class="col-md-6"><a class="quick-link" asp-controller="Teams" asp-action="Index"><partial name="_Icon" model='@("briefcase")' /><span><strong>Equipos comerciales</strong><small>Revisa equipos y miembros disponibles.</small></span><partial name="_Icon" model='@("arrow")' /></a></div> }
-        @if (canOperate) { <div class="col-md-6"><a class="quick-link" asp-controller="Integration" asp-action="Index"><partial name="_Icon" model='@("link")' /><span><strong>Monitor de integraciones</strong><small>Revisa envíos e incidencias con el ERP.</small></span><partial name="_Icon" model='@("arrow")' /></a></div> }
+        @if (canOperate) { <div class="col-md-6"><a class="quick-link" asp-controller="Integration" asp-action="Attention"><partial name="_Icon" model='@("link")' /><span><strong>Atención operativa</strong><small>Revisa los pedidos que esperan un resultado del ERP.</small></span><partial name="_Icon" model='@("arrow")' /></a></div> }
     </div>
     <section class="card"><div class="card-body"><h2 class="h5 mb-3">Tu sesión</h2><div class="row g-3"><div class="col-md-6"><p class="small text-muted mb-1">Cuenta</p><strong class="text-break">@User.Identity?.Name</strong></div><div class="col-md-6"><p class="small text-muted mb-1">Roles asignados</p>@foreach (string role in roles.Where(User.IsInRole)) { <span class="badge bg-primary me-1 mb-1">@role</span> }</div></div></div></section>
 </div>

@@ -1,0 +1,17 @@
+@using Portal.Web.Formatting
+@model Portal.Application.DTOs.Customers.CommercialAccount
+@{
+    bool team = ViewData["TeamView"] is true;
+    ViewData["Title"] = Model.Name;
+}
+<div class="container py-4">
+    <h1 class="h3">@Model.Code · @Model.Name</h1>
+    <dl class="row mt-4">
+        <dt class="col-sm-3">Equipo</dt><dd class="col-sm-9">@Model.Team</dd>
+        <dt class="col-sm-3">Titular</dt><dd class="col-sm-9">@Model.Holder</dd>
+        <dt class="col-sm-3">Suplencia vigente</dt><dd class="col-sm-9">@(Model.Substitute ?? "Sin suplencia")
+        @if (Model.EndsAtUtc is DateTime end) { <span> · Hasta el @PortalDateTime.CoverageLastDay(end) en Perú</span> }</dd>
+    </dl>
+    @if (!team) { <a asp-controller="Orders" asp-action="Create" asp-route-customerId="@Model.CustomerId" class="btn btn-primary">Nuevo pedido</a> }
+    <a asp-action="Index" class="btn btn-outline-secondary">Volver a la cartera</a>
+</div>

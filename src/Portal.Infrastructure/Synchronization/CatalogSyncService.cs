@@ -185,8 +185,7 @@ public sealed class CatalogSyncService : ICatalogSyncService
             product.CatalogVersion = snapshot.CatalogVersion;
         }
 
-        // Conservar productos ausentes para no romper referencias
-        // de pedidos que puedan existir posteriormente.
+        // Los pedidos históricos conservan la referencia al producto aunque salga del catálogo.
         foreach (var product in products)
         {
             if (!receivedProductCodes.Contains(product.ExternalCode))
@@ -195,7 +194,7 @@ public sealed class CatalogSyncService : ICatalogSyncService
                 product.UpdatedAtUtc = snapshot.ObservedAtUtc;
                 product.CatalogVersion = snapshot.CatalogVersion;
 
-                // Ya no contamos con una lectura válida de su stock.
+                // La ausencia del producto invalida su última lectura de existencias.
                 if (inventoriesByProduct.TryGetValue(
                         product.Id,
                         out var oldInventory))

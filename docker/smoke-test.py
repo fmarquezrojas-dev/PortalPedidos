@@ -51,8 +51,11 @@ class Form(HTMLParser):
         if tag == 'select':
             self.select = None
 
-    def choose(self, name, code):
-        return next(value for value, label in self.options[name] if label.strip().startswith(code + ' -'))
+def search_option(request, action, code):
+    _, body = request('/Orders/' + action + '?' + urllib.parse.urlencode({'term': code}))
+    first = json.loads(body)['items'][0]
+    assert first['code'] == code
+    return first
 
 
 def main():
@@ -109,8 +112,8 @@ def main():
     form = Form(html)
     order_id = form.inputs['DraftId']
     data = {key: form.inputs[key] for key in ['DraftId', 'CatalogVersion', 'RequestedDate', '__RequestVerificationToken']}
-    data.update({'CustomerId': form.choose('CustomerId', 'C001'),
-                 'Lines[0].ProductId': form.choose('Lines[0].ProductId', 'P001'),
+    data.update({'CustomerId': search_option(request, 'SearchCustomers', 'C001')['id'],
+                 'Lines[0].ProductId': search_option(request, 'SearchProducts', 'P001')['id'],
                  'Lines[0].Quantity': '1'})
     url, _ = request('/Orders/Create', data)
     assert '/Orders/Details/' in url and order_id in url, 'Draft was not created.'

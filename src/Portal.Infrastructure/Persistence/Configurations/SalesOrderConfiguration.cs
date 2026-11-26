@@ -105,6 +105,11 @@ public class SalesOrderConfiguration
             .HasForeignKey(order => order.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne<CustomerAssignment>()
+            .WithMany()
+            .HasForeignKey(order => order.CustomerAssignmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne<SalesOrder>()
             .WithMany()
             .HasForeignKey(order => order.ReplacesOrderId)

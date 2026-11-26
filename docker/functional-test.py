@@ -7,6 +7,7 @@ Results (including created IDs) go to .docker-local/functional-report-<UTC>.json
 import importlib.util
 import argparse
 import http.cookiejar
+from html import unescape
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -55,11 +56,15 @@ def process(args, input_text=None):
     return result.stdout
 
 
-def sql(select):
+def execute_sql(batch):
     # Credentials are read inside the known demo container, never passed as arguments.
     script = 'SQLCMDPASSWORD=$(cat /run/secrets/sql-password); export SQLCMDPASSWORD; exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -d PortalPedidosDockerDemo -y 0 -w 65535'
-    output = process(COMPOSE + ['exec', '-T', 'sql', 'bash', '-c', script],
-                     'SET NOCOUNT ON;\n' + select + ' FOR JSON PATH;\n')
+    return process(COMPOSE + ['exec', '-T', 'sql', 'bash', '-c', script],
+                   'SET NOCOUNT ON; SET XACT_ABORT ON; SET QUOTED_IDENTIFIER ON;\n' + batch + '\n')
+
+
+def sql(select):
+    output = execute_sql(select + ' FOR JSON PATH;')
     # sqlcmd emits no text for FOR JSON PATH over an empty result set.
     return json.loads(output.strip(), parse_float=Decimal) if output.strip() else []
 
@@ -163,22 +168,38 @@ def main():
         oid = str(uuid.UUID(form.inputs['DraftId']))
         report['orderId'] = oid
         data = {key: form.inputs[key] for key in ['DraftId', 'CatalogVersion', 'RequestedDate', '__RequestVerificationToken']}
-        products = [form.choose('Lines[0].ProductId', code) for code in ['P013', 'P014']]
-        data.update({'CustomerId': form.choose('CustomerId', 'C009'), 'Lines[0].ProductId': products[0],
-                     'Lines[0].Quantity': '0', 'Lines[1].ProductId': products[1], 'Lines[1].Quantity': '3'})
+        def lookup(path):
+            status, url, body = seller.request(path)
+            assert status == 200
+            return url, body
+
+        options = [smoke.search_option(lookup, 'SearchProducts', code) for code in ['P013', 'P014']]
+        products = [p['id'] for p in options]
+        prices = {p['id']: Decimal(str(p['unitPrice'])) for p in options}
+        data.update({'CustomerId': smoke.search_option(lookup, 'SearchCustomers', 'C009')['id'], 'Lines[0].ProductId': products[0],
+                     'Lines[0].Quantity': '0', 'Lines[0].QuotedPrice': '0.01', 'Lines[1].ProductId': products[1], 'Lines[1].Quantity': '3'})
         code, url, html = seller.request('/Orders/Create', data)
         assert code == 200 and '/Orders/Create' in url
         assert 'entre 1 y 9999' in html and not order_state(oid), 'Invalid quantity was persisted.'
         passed('Quantity zero rejected by server validation; no order persisted.')
         data['Lines[0].Quantity'] = '2'
-        code, url, _ = seller.request('/Orders/Create', data)
-        assert code == 200 and '/Orders/Details/' in url
+        # Use the form actually returned after validation, including the reviewed version.
+        data['CatalogVersion'] = Form(html).inputs['CatalogVersion']
+        code, url, html = seller.request('/Orders/Create', data)
+        if code == 200 and '/Orders/Create' in url and 'catálogo cambió' in unescape(html):
+            refreshed = Form(html)
+            assert refreshed.selected['CustomerId'] == data['CustomerId']
+            assert [refreshed.selected[f'Lines[{i}].ProductId'] for i in range(2)] == products
+            assert refreshed.inputs['CatalogVersion'] != data['CatalogVersion']
+            data['CatalogVersion'] = refreshed.inputs['CatalogVersion']
+            code, url, _ = seller.request('/Orders/Create', data)
+        assert code == 200 and '/Orders/Details/' in url, f'Draft creation returned {code} at {url}.'
         draft = order_state(oid)[0]
         report['publicNumber'] = draft['PublicNumber']
         report['customer'] = 'C009'
-        report['lines'] = [{'code': code, 'quantity': qty, 'price': form.prices[product]}
+        report['lines'] = [{'code': code, 'quantity': qty, 'price': prices[product]}
                            for code, qty, product in zip(['P013', 'P014'], [2, 3], products)]
-        subtotal = form.prices[products[0]] * 2 + form.prices[products[1]] * 3
+        subtotal = prices[products[0]] * 2 + prices[products[1]] * 3
         report['subtotal'] = subtotal
         assert draft['Status'] == 'Draft' and draft['Subtotal'] == subtotal
         lines = sql(f"SELECT ItemCode, Quantity, UnitPrice, LineAmount FROM SalesOrderLines WHERE OrderId='{oid}' ORDER BY LineNumber")
@@ -192,7 +213,7 @@ def main():
             for index, product in enumerate(products):
                 assert edit.selected[f'Lines[{index}].ProductId'] == product
                 assert edit.inputs[f'Lines[{index}].Quantity'] == str([2, 3][index])
-                assert edit.prices[product] == form.prices[product]
+                assert edit.prices[product] == prices[product]
             assert format(subtotal, '.2f') in html
         passed('Draft reopened twice: two lines, quantities 2/3, prices and subtotal preserved in HTML and SQL.')
 

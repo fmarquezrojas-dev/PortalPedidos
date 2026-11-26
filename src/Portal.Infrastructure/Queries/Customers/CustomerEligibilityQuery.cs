@@ -56,6 +56,6 @@ public sealed class CustomerEligibilityQuery
             return null;
         }
 
-        return _customerEligibility.Evaluate(customer);
+        return await _customerEligibility.EvaluateAsync(customer, cancellationToken);
     }
 }

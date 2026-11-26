@@ -7,7 +7,7 @@ using Portal.Application.Interfaces.Search;
 using Portal.Domain.Enums;
 namespace Portal.Infrastructure.Services.Search;
 
-// Intérprete acotado de consultas. No es un modelo generativo y no ejecuta operaciones.
+// Convierte expresiones reconocidas en filtros de consulta.
 public sealed class LocalSearchAssistant : ISearchAssistant
 {
     private static readonly TimeZoneInfo Peru = TimeZoneInfo.FindSystemTimeZoneById(
@@ -57,7 +57,7 @@ public sealed class LocalSearchAssistant : ISearchAssistant
             if (tail.Length > 100) return Unknown("Acorta el nombre o número a un máximo de 100 caracteres.");
             return new SearchIntentDto { Area = SearchArea.Orders, Term = EmptyToNull(tail),
                 OrderStatus = status, From = from, To = to,
-                Message = "Preparé una búsqueda de pedidos. Revisa los filtros antes de abrir los resultados." };
+                Message = "Revisa el estado, las fechas o el texto antes de abrir los pedidos." };
         }
         // Conservar acentos del nombre al extraer el resto de una consulta de catálogo o clientes.
         // La comparación en base de datos sigue su colación configurada.
@@ -69,11 +69,11 @@ public sealed class LocalSearchAssistant : ISearchAssistant
             else if (tail is "inactivos" or "inactivo") { active = false; originalTail = ""; }
             if (originalTail.Length > 100) return Unknown("Acorta el nombre del cliente a un máximo de 100 caracteres.");
             return new SearchIntentDto { Area = SearchArea.Customers, Term = EmptyToNull(originalTail),
-                CustomerIsActive = active, Message = "Preparé una búsqueda en el directorio de clientes." };
+                CustomerIsActive = active, Message = "Los resultados se abren en el directorio de clientes." };
         }
         if (originalTail.Length > 100) return Unknown("Acorta el nombre del producto a un máximo de 100 caracteres.");
         return new SearchIntentDto { Area = SearchArea.Catalog, Term = EmptyToNull(originalTail),
-            Message = "Preparé una búsqueda por nombre o código de producto." };
+            Message = "El catálogo busca por nombre o código de producto." };
     }
     private static string OriginalTail(string source)
     {

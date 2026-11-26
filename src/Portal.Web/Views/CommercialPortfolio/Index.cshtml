@@ -1,0 +1,55 @@
+@using Portal.Application.DTOs.Customers
+@using Portal.Web.Formatting
+@model CommercialPortfolioPage
+@{
+    ViewData["Title"] = Model.TeamView ? "Cartera del equipo" : "Mi cartera";
+}
+<div class="container-fluid py-4">
+    <h1 class="h3">@ViewData["Title"]</h1>
+    <form method="get" asp-action="Index" class="d-flex align-items-end gap-2 mb-3">
+        <div><label for="search" class="form-label">Código o nombre del cliente</label>
+        <input id="search" name="search" value="@Model.Search" maxlength="100" class="form-control" /></div>
+        <input type="hidden" name="filter" value="@Model.Filter" />
+        <button class="btn btn-primary">Buscar</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+    </form>
+    <nav aria-label="Responsabilidad" class="d-flex flex-wrap gap-2 mb-3">
+        <a asp-action="Index" asp-route-search="@Model.Search" class="btn btn-outline-secondary">Todos</a>
+        @foreach (var item in new[] { (PortfolioFilter.Holder, "Titulares", Model.Holders),
+            (PortfolioFilter.Substitute, "Suplencias vigentes", Model.Substitutes),
+            (PortfolioFilter.Expiring, "Vencen en siete días", Model.Expiring) })
+        {
+            <a asp-action="Index" asp-route-search="@Model.Search" asp-route-filter="@item.Item1"
+               class="btn @(Model.Filter == item.Item1 ? "btn-primary" : "btn-outline-primary")"
+               aria-current="@(Model.Filter == item.Item1 ? "page" : null)">@item.Item2 · @item.Item3</a>
+        }
+    </nav>
+    <div class="card card-body"><p>Clientes encontrados · @Model.Total</p>
+    @if (Model.Total == 0)
+    {
+        <p>No hay clientes con estos filtros.</p>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table align-middle"><thead>
+            <tr><th>Cliente</th><th>@(Model.TeamView ? "Titular y equipo" : "Responsabilidad")</th><th>Cobertura temporal</th></tr>
+        </thead><tbody>
+        @foreach (var row in Model.Items)
+        {
+            <tr><td><a asp-action="Details" asp-route-id="@row.CustomerId">@row.Code · @row.Name</a></td>
+            <td>@(Model.TeamView ? row.Holder : row.HolderId == Model.UserId ? "Titular" : "Suplente")<br /><small>@row.Team</small></td>
+            <td>@if (row.EndsAtUtc is DateTime end)
+            {
+                <span>@row.Substitute · Hasta el @PortalDateTime.CoverageLastDay(end)</span>
+                @if (end <= Model.ExpiringUntilUtc) { <strong class="d-block">Próxima a vencer</strong> }
+            }
+            else { <span>Sin suplencia vigente</span> }</td></tr>
+        }
+        </tbody></table></div>
+    }
+    <nav class="d-flex gap-3" aria-label="Páginas de cartera">
+        <span>Página @Model.Page de @Model.Pages</span>
+        @if (Model.Page > 1) { <a asp-action="Index" asp-route-search="@Model.Search" asp-route-filter="@Model.Filter" asp-route-page="@(Model.Page-1)">Anterior</a> }
+        @if (Model.Page < Model.Pages) { <a asp-action="Index" asp-route-search="@Model.Search" asp-route-filter="@Model.Filter" asp-route-page="@(Model.Page+1)">Siguiente</a> }
+    </nav></div>
+</div>

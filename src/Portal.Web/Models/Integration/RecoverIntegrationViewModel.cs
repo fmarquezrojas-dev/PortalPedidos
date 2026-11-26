@@ -9,6 +9,7 @@ namespace Portal.Web.Models.Integration;
 public sealed class RecoverIntegrationViewModel
 {
     public Guid MessageId { get; set; }
+    public string? ReturnUrl { get; set; }
 
     [Required]
     [StringLength(32)]

@@ -27,23 +27,23 @@ public sealed class RoleDirectoryQuery : IRoleDirectoryQuery
         new(
             AppRoles.Admin,
             "Administrador del sistema",
-            "Administra accesos y supervisa la configuración del portal. " +
-            "En esta etapa conserva también sus permisos comerciales actuales.",
+            "Administra usuarios, equipos, asignaciones de clientes y suplencias. " +
+            "Puede preparar pedidos y revisar su integración con el ERP.",
             true),
 
         new(
             AppRoles.Seller,
             "Vendedor",
             "Prepara, envía y consulta sus pedidos. " +
-            "Los clientes elegibles todavía no se restringen por cartera.",
+            "En modo restringido puede elegir clientes como titular o suplente vigente.",
             true),
 
-     new(
-    AppRoles.SalesSupervisor,
-    "Supervisor comercial",
-    "Consulta sus equipos y administra sus vendedores. " +
-    "Consulta los pedidos atribuidos a los equipos activos que supervisa.",
-    true),
+        new(
+            AppRoles.SalesSupervisor,
+            "Supervisor comercial",
+            "Gestiona los integrantes de sus equipos y consulta su cartera, sus suplencias vigentes " +
+            "y los pedidos atribuidos a los equipos activos que supervisa.",
+            true),
 
         new(
             AppRoles.Operator,
@@ -55,15 +55,13 @@ public sealed class RoleDirectoryQuery : IRoleDirectoryQuery
         new(
             AppRoles.CommercialManagement,
             "Gerencia comercial",
-            "Consultará indicadores y resultados comerciales " +
-            "con alcance global.",
+            "Rol de gerencia comercial sin permisos específicos.",
             false),
 
         new(
             AppRoles.Auditor,
             "Auditor",
-            "Consultará la trazabilidad y los eventos autorizados " +
-            "sin modificar las operaciones.",
+            "Rol de auditoría sin permisos específicos.",
             false)
     };
 
@@ -142,8 +140,7 @@ public sealed class RoleDirectoryQuery : IRoleDirectoryQuery
             });
         }
 
-        // Mostrar también roles existentes en Identity que no estén
-        // definidos en el catálogo de esta versión del portal.
+        // Incluir roles registrados en Identity fuera del catálogo del portal.
         var knownNames = new HashSet<string>(
             Definitions.Select(definition => definition.Name),
             StringComparer.OrdinalIgnoreCase);
@@ -176,8 +173,7 @@ public sealed class RoleDirectoryQuery : IRoleDirectoryQuery
                     ? "Rol sin nombre"
                     : roleName,
                 Description =
-                    "Existe en Identity, pero no forma parte del " +
-                    "catálogo de roles definido para esta versión.",
+                    "Rol registrado en Identity fuera del catálogo del portal.",
                 IsRegistered = true,
                 IsRecognized = false,
                 AccessConfigured = false,

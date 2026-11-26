@@ -7,6 +7,7 @@ using Portal.Application.Exceptions;
 using Portal.Application.Interfaces.Customers;
 using Portal.Infrastructure.Identity;
 using Portal.Infrastructure.Queries.Customers;
+using Portal.Infrastructure.Services.Customers;
 using Portal.Web.Models.Customers;
 using System;
 using System.Linq;
@@ -30,6 +31,9 @@ public sealed class CustomerPortfolioController : Controller
     private readonly ICustomerEligibilityQuery _customerEligibilityQuery;
     private readonly IAuthorizationService _authorizationService;
     private readonly ICustomerPortfolioListQuery _listQuery;
+    private readonly CustomerCoverageService _coverages;
+    private readonly CommercialPortfolioQuery _portfolio;
+    private readonly TimeProvider _clock;
 
     public CustomerPortfolioController(
       ICustomerPortfolioQuery query,
@@ -37,7 +41,8 @@ public sealed class CustomerPortfolioController : Controller
       ILogger<CustomerPortfolioController> logger,
       ICustomerEligibilityQuery customerEligibilityQuery,
       IAuthorizationService authorizationService,
-      ICustomerPortfolioListQuery listQuery)
+      ICustomerPortfolioListQuery listQuery, CustomerCoverageService coverages,
+      CommercialPortfolioQuery portfolio, TimeProvider clock)
     {
         _query = query;
         _service = service;
@@ -45,6 +50,9 @@ public sealed class CustomerPortfolioController : Controller
         _customerEligibilityQuery = customerEligibilityQuery;
         _authorizationService = authorizationService;
         _listQuery = listQuery;
+        _coverages = coverages;
+        _portfolio = portfolio;
+        _clock = clock;
     }
 
     [HttpGet]
@@ -109,15 +117,54 @@ public sealed class CustomerPortfolioController : Controller
                 User, null, Portal.Web.Security.AppPolicies.ViewOrders)).Succeeded;
             var eligibility = canCreate && canView
                 ? await _customerEligibilityQuery.GetAsync(id, cancellationToken) : null;
-            return View(new CustomerPortfolioDetailsViewModel
+            return View("Details", new CustomerPortfolioDetailsViewModel
             {
-                Portfolio = model, Eligibility = eligibility, CanCreateOrders = canCreate && canView
+                Portfolio = model, Eligibility = eligibility, CanCreateOrders = canCreate && canView,
+                AsOfUtc = _clock.GetUtcNow().UtcDateTime,
+                Coverages = await _portfolio.CoverageHistory().Where(c => c.CustomerId == id)
+                    .OrderByDescending(c => c.StartsAtUtc).ThenBy(c => c.Id).ToListAsync(cancellationToken)
             });
         }
         catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GrantCoverage(GrantCoverageForm model, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest("Revisa el correo, las dos fechas y el motivo (5 a 250 caracteres).");
+        try
+        {
+            await _coverages.GrantAsync(model.CustomerId, model.AssignmentId, model.Email,
+                model.From!.Value, model.To!.Value, model.Reason, ct);
+            return RedirectToAction(nameof(Details), new { id = model.CustomerId });
+        }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (CustomerPortfolioException ex) { return await CoverageConflict(model.CustomerId, ex.Message, ct); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeCoverage(Guid customerId, Guid coverageId, string reason, CancellationToken ct)
+    {
+        if (!ModelState.IsValid) return BadRequest("Indica la suplencia y el motivo de revocación.");
+        try
+        {
+            await _coverages.RevokeAsync(customerId, coverageId, reason, ct);
+            return RedirectToAction(nameof(Details), new { id = customerId });
+        }
+        catch (CustomerPortfolioException ex) { return await CoverageConflict(customerId, ex.Message, ct); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    private async Task<IActionResult> CoverageConflict(Guid id, string message, CancellationToken ct)
+    {
+        TempData["ErrorMessage"] = message;
+        Response.StatusCode = 409;
+        return await Details(id, ct);
     }
 
     [HttpPost]

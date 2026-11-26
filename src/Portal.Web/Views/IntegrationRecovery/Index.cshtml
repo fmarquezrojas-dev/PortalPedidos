@@ -53,6 +53,7 @@
         <div class="d-flex flex-wrap gap-2">
             <a asp-controller="IntegrationRecovery"
                asp-action="Index"
+               asp-route-returnUrl="@Model.ReturnUrl"
                asp-route-id="@Model.MessageId"
                class="btn btn-outline-primary">
                 Recargar confirmación
@@ -60,6 +61,7 @@
 
             <a asp-controller="Integration"
                asp-action="Details"
+               asp-route-returnUrl="@Model.ReturnUrl"
                asp-route-id="@Model.MessageId"
                class="btn btn-outline-secondary">
                 Ver seguimiento
@@ -86,6 +88,7 @@
               method="post">
 
             <input asp-for="MessageId" type="hidden" />
+            <input asp-for="ReturnUrl" type="hidden" />
             <input asp-for="RowVersion" type="hidden" />
 
             <div class="mb-3">
@@ -122,6 +125,7 @@
 
                 <a asp-controller="Integration"
                    asp-action="Details"
+                   asp-route-returnUrl="@Model.ReturnUrl"
                    asp-route-id="@Model.MessageId"
                    class="btn btn-outline-secondary">
                     Volver sin recuperar

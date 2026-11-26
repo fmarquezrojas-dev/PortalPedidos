@@ -5,6 +5,7 @@ public interface ICurrentUser
     string? UserId { get; }
 
     bool IsAuthenticated { get; }
+    bool IsAdministrator { get; }
 
     bool CanViewOrders { get; }
 

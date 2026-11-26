@@ -353,7 +353,7 @@ public sealed class CustomerPortfolioService
         return userId;
     }
 
-    private static string NormalizeReason(string reason)
+    internal static string NormalizeReason(string reason)
     {
         string normalized = reason?.Trim() ?? string.Empty;
 

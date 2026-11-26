@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Portal.Application.DTOs.Orders;
+
+public sealed record SavedDraftLine(Guid ProductId, int Quantity, decimal UnitPrice);
 
 public sealed class OrderDraftEditDto
 {
@@ -17,8 +19,8 @@ public sealed class OrderDraftEditDto
 
     public byte[] RowVersion { get; init; } = Array.Empty<byte>();
 
-    public IReadOnlyList<CreateOrderDraftLineRequest> Lines { get; init; }
-        = Array.Empty<CreateOrderDraftLineRequest>();
+    public IReadOnlyList<SavedDraftLine> Lines { get; init; }
+        = Array.Empty<SavedDraftLine>();
 }
 
 public sealed class UpdateOrderDraftRequest

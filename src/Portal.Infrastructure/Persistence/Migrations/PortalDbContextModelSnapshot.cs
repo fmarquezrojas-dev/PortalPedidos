@@ -344,6 +344,64 @@ namespace Portal.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Portal.Domain.Entities.CustomerCoverage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("GrantedAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("GrantedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("RevokeReason")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("RevokedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("SubstituteMemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantedByUserId");
+
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("SubstituteMemberId");
+
+                    b.HasIndex("AssignmentId", "StartsAtUtc", "EndsAtUtc");
+
+                    b.ToTable("CustomerCoverages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CustomerCoverages_Period", "[StartsAtUtc] < [EndsAtUtc]");
+
+                            t.HasCheckConstraint("CK_CustomerCoverages_Revocation", "([RevokedAtUtc] IS NULL AND [RevokedByUserId] IS NULL AND [RevokeReason] IS NULL) OR ([RevokedAtUtc] IS NOT NULL AND [RevokedByUserId] IS NOT NULL AND [RevokeReason] IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Portal.Domain.Entities.IntegrationAttempt", b =>
                 {
                     b.Property<long>("Id")
@@ -640,6 +698,9 @@ namespace Portal.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("char(3)");
 
+                    b.Property<Guid?>("CustomerAssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CustomerCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -703,6 +764,8 @@ namespace Portal.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerAssignmentId");
 
                     b.HasIndex("CustomerId");
 
@@ -1027,6 +1090,32 @@ namespace Portal.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Portal.Domain.Entities.CustomerCoverage", b =>
+                {
+                    b.HasOne("Portal.Domain.Entities.CustomerAssignment", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Portal.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Portal.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Portal.Domain.Entities.SalesTeamMember", null)
+                        .WithMany()
+                        .HasForeignKey("SubstituteMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Portal.Domain.Entities.IntegrationAttempt", b =>
                 {
                     b.HasOne("Portal.Domain.Entities.OutboxMessage", null)
@@ -1070,6 +1159,11 @@ namespace Portal.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Portal.Domain.Entities.SalesOrder", b =>
                 {
+                    b.HasOne("Portal.Domain.Entities.CustomerAssignment", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerAssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Portal.Domain.Entities.Customer", null)
                         .WithMany()
                         .HasForeignKey("CustomerId")

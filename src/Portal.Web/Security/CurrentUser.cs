@@ -21,6 +21,8 @@ public sealed class CurrentUser : ICurrentUser
         Principal?.FindFirst(
             ClaimTypes.NameIdentifier)?.Value;
 
+    public bool IsAdministrator => Principal?.IsInRole(Portal.Infrastructure.Identity.AppRoles.Admin) == true;
+
     public bool IsAuthenticated =>
         Principal?.Identity?.IsAuthenticated == true;
 

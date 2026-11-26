@@ -64,8 +64,9 @@ public sealed class OrderOutboxProcessor : IOrderOutboxProcessor
                     message: "El mensaje almacenado no coincide con su referencia y hash. Requiere revisión técnica.",
                     isTransient: false, outcomeUncertain: work.Operation == LookupOperation);
             }
-            // La transacción de adquisición ya terminó.
-            // No mantenemos una transacción SQL durante la llamada HTTP.
+            // La llamada HTTP se realiza fuera de la transacción de adquisición.
+            // La cobertura comercial se validó al encolar. Si vence después,
+            // el trabajador debe completar el envío o recuperar su resultado.
             if (work.Operation == LookupOperation)
             {
                 // null significa que la consulta no encontró
@@ -88,12 +89,9 @@ public sealed class OrderOutboxProcessor : IOrderOutboxProcessor
 
                 if (result is null)
                 {
-                    // Un envío sin respuesta válida no demuestra que
-                    // el ERP no haya guardado el pedido.
-                    //
-                    // Propagamos el fallo al worker. El mensaje permanece
-                    // en Processing hasta vencer su concesión y después
-                    // será recuperado mediante Lookup.
+                    // El ERP puede haber confirmado la reserva antes de perder la respuesta.
+                    // Al vencer el plazo de Processing, el siguiente intento consulta la
+                    // referencia original (Lookup) antes de decidir si corresponde reenviar.
                     throw new InvalidOperationException(
                         "El cliente ERP devolvió un resultado nulo " +
                         "para una operación de envío. " +

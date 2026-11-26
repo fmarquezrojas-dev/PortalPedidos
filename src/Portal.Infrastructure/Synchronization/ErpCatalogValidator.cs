@@ -42,22 +42,20 @@ internal static class ErpCatalogValidator
             Fail("Faltan colecciones en la respuesta del catálogo.");
         }
 
-        // Protección para esta primera versión del simulador:
-        // no aceptar un catálogo vacío que desactive todos los registros.
+        // Una instantánea vacía desactivaría todos los registros del catálogo.
         if (snapshot.Customers!.Count == 0 ||
             snapshot.Items!.Count == 0 ||
             snapshot.Stocks!.Count == 0)
         {
             Fail(
-                "No se permite sincronizar un catálogo vacío " +
-                "en esta versión del portal.");
+                "El catálogo debe incluir clientes, productos y existencias.");
         }
 
         if (snapshot.Customers.Count > 10000 ||
             snapshot.Items.Count > 10000 ||
             snapshot.Stocks.Count > 10000)
         {
-            Fail("El catálogo supera el límite de este prototipo.");
+            Fail("La sincronización admite hasta 10 000 registros por colección de clientes, productos o existencias.");
         }
 
         var customerCodes = new HashSet<string>(

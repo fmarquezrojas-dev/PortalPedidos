@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Linq;
+using System.Linq.Expressions;
+using Portal.Infrastructure.Queries.Common;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +17,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Portal.Application.Interfaces.Customers;
+using Portal.Infrastructure.Services.Customers;
+using Portal.Infrastructure.Queries.Customers;
 
 
 namespace Portal.Infrastructure.Services.Orders;
@@ -24,6 +28,7 @@ public sealed class OrderDraftService : IOrderDraftService
     private readonly PortalDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
     private readonly ICustomerEligibilityService _customerEligibility;
+    private readonly CommercialPortfolioQuery _portfolio;
 
     private static readonly TimeZoneInfo PeruTimeZone =
         TimeZoneInfo.FindSystemTimeZoneById(
@@ -34,11 +39,12 @@ public sealed class OrderDraftService : IOrderDraftService
     public OrderDraftService(
         PortalDbContext dbContext,
         ICurrentUser currentUser,
-        ICustomerEligibilityService customerEligibility)
+        ICustomerEligibilityService customerEligibility, CommercialPortfolioQuery portfolio)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
         _customerEligibility = customerEligibility;
+        _portfolio = portfolio;
     }
 
     private string RequireCreator()
@@ -129,7 +135,45 @@ public sealed class OrderDraftService : IOrderDraftService
             cancellationToken);
     }
 
+    private const int SearchLimit = 20;
+    private static readonly Expression<Func<Product, ProductOptionDto>> ProductOption =
+        product => new ProductOptionDto
+        {
+            Id = product.Id, Code = product.ExternalCode, Name = product.Name,
+            UnitPrice = product.UnitPrice, IsActive = product.IsActive
+        };
+
+    public async Task<CaptureSearchPage<CustomerOptionDto>> SearchCustomersAsync(
+        string term, int offset, CancellationToken cancellationToken)
+    {
+        RequireCreator();
+        var items = await _dbContext.Customers.AsNoTracking().TagWith("Captura: clientes")
+            .Where(_customerEligibility.GetEligibleCustomerPredicate())
+            .Matching(term)
+            .OrderByDescending(c => c.ExternalCode == term)
+            .ThenBy(c => c.ExternalCode).ThenBy(c => c.Id)
+            .Skip(offset)
+            .Select(c => new CustomerOptionDto { Id = c.Id, Code = c.ExternalCode, Name = c.Name })
+            .Take(SearchLimit + 1).ToListAsync(cancellationToken);
+        return new(items.Take(SearchLimit).ToArray(), items.Count > SearchLimit);
+    }
+
+    public async Task<CaptureSearchPage<ProductOptionDto>> SearchProductsAsync(
+        string term, int offset, CancellationToken cancellationToken)
+    {
+        RequireCreator();
+        var items = await _dbContext.Products.AsNoTracking().TagWith("Captura: productos")
+            .Where(p => p.IsActive).Matching(term)
+            .OrderByDescending(p => p.ExternalCode == term)
+            .ThenBy(p => p.ExternalCode).ThenBy(p => p.Id)
+            .Skip(offset)
+            .Select(ProductOption)
+            .Take(SearchLimit + 1).ToListAsync(cancellationToken);
+        return new(items.Take(SearchLimit).ToArray(), items.Count > SearchLimit);
+    }
+
     public async Task<OrderDraftFormDataDto> GetFormDataAsync(
+        Guid? customerId, Guid[] productIds,
         CancellationToken cancellationToken = default)
     {
         RequireCreator();
@@ -150,40 +194,26 @@ public sealed class OrderDraftService : IOrderDraftService
                 item => item.Id == 1,
                 cancellationToken);
 
-        var customers = await _dbContext.Customers
-            .AsNoTracking()
-            .Where(_customerEligibility.GetEligibleCustomerPredicate())
-            .OrderBy(customer => customer.Name)
-            .ThenBy(customer => customer.Id)
-            .Select(customer => new CustomerOptionDto
-            {
-                Id = customer.Id,
-                Code = customer.ExternalCode,
-                Name = customer.Name
-            })
-            .ToListAsync(cancellationToken);
+        var customer = customerId.HasValue
+            ? await _dbContext.Customers.AsNoTracking()
+                .SingleOrDefaultAsync(c => c.Id == customerId, cancellationToken)
+            : null;
+        var products = productIds.Length == 0
+            ? Array.Empty<ProductOptionDto>()
+            : await _dbContext.Products.AsNoTracking()
+                .Where(p => productIds.Contains(p.Id))
+                .Select(ProductOption).ToArrayAsync(cancellationToken);
 
-        var products = await _dbContext.Products
-            .AsNoTracking()
-            .Where(product => product.IsActive)
-            .OrderBy(product => product.Name)
-            .ThenBy(product => product.Id)
-            .Select(product => new ProductOptionDto
-            {
-                Id = product.Id,
-                Code = product.ExternalCode,
-                Name = product.Name,
-                UnitPrice = product.UnitPrice
-            })
-            .ToListAsync(cancellationToken);
-
+        var eligibility = await _customerEligibility.EvaluateAsync(customer, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return new OrderDraftFormDataDto
         {
             CatalogVersion = state?.CurrentVersion ?? 0,
             TodayInPeru = TodayInPeru(),
-            Customers = customers,
+            Customer = customer is null ? null : new CustomerOptionDto
+            { Id = customer.Id, Code = customer.ExternalCode, Name = customer.Name },
+            CustomerIsEligible = eligibility.IsEligible,
             Products = products
         };
     }
@@ -305,7 +335,8 @@ public sealed class OrderDraftService : IOrderDraftService
                 item => item.Id == request.CustomerId,
                 cancellationToken);
 
-        var customerEligibility = _customerEligibility.Evaluate(customer);
+        await PortfolioLocks.ForCustomerAsync(_dbContext, request.CustomerId, false, cancellationToken);
+        var customerEligibility = await _customerEligibility.EvaluateAsync(customer, cancellationToken);
 
         if (customer is null || !customerEligibility.IsEligible)
         {
@@ -344,6 +375,7 @@ public sealed class OrderDraftService : IOrderDraftService
             OwnerUserId = userId,
             SalesTeamId = salesTeamId,
             CustomerId = customer.Id,
+            CustomerAssignmentId = await _portfolio.HolderAssignmentAsync(customer.Id, cancellationToken),
             CustomerCode = customer.ExternalCode,
             CustomerName = customer.Name,
             RequestedDate = request.RequestedDate,
@@ -460,11 +492,7 @@ public sealed class OrderDraftService : IOrderDraftService
             .AsNoTracking()
             .Where(line => line.OrderId == order.Id)
             .OrderBy(line => line.LineNumber)
-            .Select(line => new CreateOrderDraftLineRequest
-            {
-                ProductId = line.ProductId,
-                Quantity = (int)line.Quantity
-            })
+            .Select(line => new SavedDraftLine(line.ProductId, (int)line.Quantity, line.UnitPrice))
             .ToListAsync(cancellationToken);
 
         return new OrderDraftEditDto
@@ -610,7 +638,8 @@ public sealed class OrderDraftService : IOrderDraftService
                 item => item.Id == request.CustomerId,
                 cancellationToken);
 
-        var customerEligibility = _customerEligibility.Evaluate(customer);
+        await PortfolioLocks.ForCustomerAsync(_dbContext, request.CustomerId, false, cancellationToken);
+        var customerEligibility = await _customerEligibility.EvaluateAsync(customer, cancellationToken);
 
         if (customer is null || !customerEligibility.IsEligible)
         {
@@ -640,6 +669,8 @@ public sealed class OrderDraftService : IOrderDraftService
 
         decimal previousSubtotal = order.Subtotal;
         Guid previousCustomerId = order.CustomerId;
+        if (previousCustomerId != customer.Id)
+            order.CustomerAssignmentId = await _portfolio.HolderAssignmentAsync(customer.Id, cancellationToken);
         DateOnly previousRequestedDate = order.RequestedDate;
         int previousLineCount = previousLines.Count;
 
@@ -951,7 +982,7 @@ public sealed class OrderDraftService : IOrderDraftService
             "Shared",
             cancellationToken);
 
-        DateTime nowUtc = DateTime.UtcNow;
+        DateTime catalogCheckUtc = DateTime.UtcNow;
 
         var state = await _dbContext.CatalogSyncStates
             .AsNoTracking()
@@ -959,40 +990,12 @@ public sealed class OrderDraftService : IOrderDraftService
                 item => item.Id == 1,
                 cancellationToken);
 
-        if (state is null ||
-            state.CurrentVersion <= 0 ||
-            !state.LastSuccessAtUtc.HasValue ||
-            state.LastSuccessAtUtc.Value < nowUtc.AddMinutes(-5) ||
-            state.LastSuccessAtUtc.Value > nowUtc.AddMinutes(1))
+        if (state is null || !state.IsFreshForSubmission(catalogCheckUtc))
         {
             throw new OrderSubmissionException(
                 "CATALOG_STALE",
                 "El catálogo no tiene una sincronización reciente. " +
                 "Espera una actualización antes de enviar.");
-        }
-
-        var customer = await _dbContext.Customers
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                item => item.Id == order.CustomerId,
-                cancellationToken);
-
-        var customerEligibility = _customerEligibility.Evaluate(customer);
-
-        if (customer is null || !customerEligibility.IsEligible)
-        {
-            throw new OrderSubmissionException(
-                "CATALOG_CHANGED",
-                customerEligibility.Message
-                ?? "El cliente ya no está disponible. Revisa el borrador.");
-        }
-
-        if (customer.ExternalCode != order.CustomerCode)
-        {
-            throw new OrderSubmissionException(
-                "CATALOG_CHANGED",
-                "El código ERP del cliente cambió. "
-                + "Edita y revisa el borrador antes de enviarlo.");
         }
 
         var lines = await _dbContext.SalesOrderLines
@@ -1059,7 +1062,7 @@ public sealed class OrderDraftService : IOrderDraftService
             {
                 throw new OrderSubmissionException(
                     "CATALOG_CHANGED",
-                    "Uno de los productos ya no está disponible. " +
+                    $"El producto {line.ItemCode} de la línea {line.LineNumber} ya no está disponible. " +
                     "Edita el borrador antes de enviarlo.");
             }
 
@@ -1067,14 +1070,14 @@ public sealed class OrderDraftService : IOrderDraftService
             {
                 throw new OrderSubmissionException(
                     "CATALOG_CHANGED",
-                    "Cambió el precio de uno o más productos. " +
+                    $"Cambió el precio de {line.ItemCode} en la línea {line.LineNumber}. " +
                     "Edita el borrador, revisa los precios actuales " +
                     "y guarda antes de enviarlo.");
             }
 
             if (!stocks.TryGetValue(line.ProductId, out var stock) ||
-                stock.ObservedAtUtc < nowUtc.AddMinutes(-5) ||
-                stock.ObservedAtUtc > nowUtc.AddMinutes(1) ||
+                stock.ObservedAtUtc < catalogCheckUtc.AddMinutes(-5) ||
+                stock.ObservedAtUtc > catalogCheckUtc.AddMinutes(1) ||
                 stock.CatalogVersion != state.CurrentVersion)
             {
                 throw new OrderSubmissionException(
@@ -1151,6 +1154,27 @@ public sealed class OrderDraftService : IOrderDraftService
 
         Guid messageId = Guid.NewGuid();
         Guid correlationId = Guid.NewGuid();
+
+        // El bloqueo del cliente impide que una revocación se intercale entre la
+        // comprobación de la cobertura y el commit del pedido con su mensaje Outbox.
+        await PortfolioLocks.ForCustomerAsync(_dbContext, order.CustomerId, false, cancellationToken);
+        var customer = await _dbContext.Customers.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == order.CustomerId, cancellationToken);
+        DateTime nowUtc = DateTime.UtcNow;
+        var customerEligibility = await _customerEligibility.EvaluateAsync(customer, cancellationToken);
+        if (customer is null || !customerEligibility.IsEligible)
+        {
+            throw new OrderSubmissionException(
+                customerEligibility.Code == "OUTSIDE_PORTFOLIO" ? "OUTSIDE_PORTFOLIO" : "CATALOG_CHANGED",
+                customerEligibility.Message ?? "El cliente ya no está disponible. Revisa el borrador.");
+        }
+
+        if (customer.ExternalCode != order.CustomerCode)
+        {
+            throw new OrderSubmissionException(
+                "CATALOG_CHANGED",
+                "El código ERP del cliente cambió. Edita y revisa el borrador antes de enviarlo.");
+        }
 
         _dbContext.Entry(order)
             .Property(item => item.RowVersion)

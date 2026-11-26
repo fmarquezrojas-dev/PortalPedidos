@@ -107,8 +107,8 @@ public sealed class ErpOrderService
                 "El catálogo del simulador todavía no está preparado.");
         }
 
-        // Truncamos a milisegundos para conservar el mismo valor
-        // al leer posteriormente desde datetime2(3).
+        // datetime2(3) conserva milisegundos. La respuesta inicial y las consultas
+        // posteriores deben devolver la misma marca de tiempo.
         var utcNow = DateTime.UtcNow;
 
         var processedAtUtc = new DateTime(

@@ -81,7 +81,6 @@ public static class ErpCatalogSeeder
         }
 
         // Precios ficticios antes de impuestos.
-        // Los seis primeros productos corresponden al prototipo.
         (
             string Code,
             string Name,

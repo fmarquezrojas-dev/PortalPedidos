@@ -20,16 +20,13 @@ public sealed class CustomerPortfolioListQuery : ICustomerPortfolioListQuery
 
     private readonly global::Portal.Infrastructure.Persistence.PortalDbContext _db;
     private readonly ICurrentUser _currentUser;
-    private readonly ICustomerEligibilityService _customerEligibility;
 
     public CustomerPortfolioListQuery(
         global::Portal.Infrastructure.Persistence.PortalDbContext db,
-        ICurrentUser currentUser,
-        ICustomerEligibilityService customerEligibility)
+        ICurrentUser currentUser)
     {
         _db = db;
         _currentUser = currentUser;
-        _customerEligibility = customerEligibility;
     }
 
     public async Task<CustomerPortfolioListPageDto> SearchAsync(
@@ -231,7 +228,8 @@ public sealed class CustomerPortfolioListQuery : ICustomerPortfolioListQuery
         {
             // La elegibilidad se evalúa sobre los clientes materializados.
             // No se introduce Evaluate dentro de una consulta SQL.
-            var eligibility = _customerEligibility.Evaluate(row.Customer);
+            var eligibility = row.Customer.IsActive
+                ? CustomerEligibilityResultDto.Eligible() : CustomerEligibilityResultDto.Inactive();
 
             var reviewReasons = new List<string>();
 

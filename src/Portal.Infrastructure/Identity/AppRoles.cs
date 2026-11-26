@@ -5,15 +5,13 @@ namespace Portal.Infrastructure.Identity;
 
 public static class AppRoles
 {
-    // Roles existentes.
-    // Se conservan sus nombres para mantener las asignaciones actuales.
+    // Identity utiliza estos nombres para las asignaciones de usuarios y las políticas.
     public const string Seller = "Vendedor";
 
     public const string Operator = "Operador";
 
     public const string Admin = "Administrador";
 
-    // Roles nuevos.
     public const string SalesSupervisor = "SupervisorComercial";
 
     public const string CommercialManagement = "GerenciaComercial";

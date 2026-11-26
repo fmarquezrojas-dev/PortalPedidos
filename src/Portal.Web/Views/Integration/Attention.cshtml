@@ -1,0 +1,138 @@
+@model Portal.Application.DTOs.Integration.OperationalAttention
+@using Portal.Application.DTOs.Integration
+@using Portal.Domain.Enums
+@using Portal.Web.Formatting
+@{
+    ViewData["Title"] = "Atención operativa";
+}
+<div class="container-fluid py-4">
+    <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <p class="section-kicker">INTEGRACIONES ERP</p>
+            <h1 class="h3 mb-0">Atención operativa</h1>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">Monitor completo e historial</a>
+    </header>
+    @if (Model is null)
+    {
+        <div class="alert alert-danger" role="alert">No se pudo consultar la bandeja.
+            <a href="" class="alert-link">Volver a consultar</a>
+        </div>
+    }
+    else
+    {
+        var returnUrl = Url.Action("Attention", new { Model.Category, Model.OrderNumber, Model.PageNumber });
+        var catalog = Model.Catalog;
+        var catalogStatus = catalog?.LastSuccessAtUtc == null || catalog.CurrentVersion <= 0
+            ? "Primera sincronización pendiente"
+            : catalog.IsFreshForSubmission(Model.AsOfUtc) ? "Vigente" : "Fuera de vigencia";
+        <form asp-action="Attention" method="get" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+            <input type="hidden" name="category" value="@Model.Category" />
+            <div>
+                <label for="orderNumber" class="form-label">Número de pedido</label>
+                <input id="orderNumber" name="orderNumber" type="number" min="1" value="@Model.OrderNumber" class="form-control" />
+            </div>
+            <button class="btn btn-primary">Buscar / actualizar</button>
+            <a asp-action="Attention" class="btn btn-outline-secondary">Limpiar filtros</a>
+        </form>
+        <nav aria-label="Filtrar por prioridad" class="d-flex flex-wrap gap-2 mb-4">
+            @foreach (var category in Enum.GetValues<AttentionCategory>())
+            {
+                <a asp-action="Attention" asp-route-category="@category" asp-route-orderNumber="@Model.OrderNumber"
+                   aria-current="@(Model.Category == category ? "page" : null)"
+                   class="btn @(Model.Category == category ? "btn-primary" : "btn-outline-primary")">
+                    @OperationalAttentionDisplay.Label(category)
+                    <span class="badge bg-light text-dark">@Model.Counts.GetValueOrDefault(category)</span>
+                </a>
+            }
+        </nav>
+        <section aria-labelledby="list-heading" class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 id="list-heading" class="h5">@(Model.Category.HasValue ? OperationalAttentionDisplay.Label(Model.Category.Value) : "Operaciones abiertas")
+                    <span class="badge bg-secondary">@Model.TotalCount</span>
+                </h2>
+                <p class="small text-muted">Consultado el @PortalDateTime.Format(Model.AsOfUtc) · Hora de Perú</p>
+                @if (Model.Items.Count == 0)
+                {
+                    <p role="status">@(Model.Category.HasValue || Model.OrderNumber.HasValue ?
+                        "No hay operaciones pendientes con estos filtros." : "No hay operaciones pendientes.")</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead><tr>
+                                <th>Pedido / cliente</th><th>Situación y acción</th><th>Tiempo en cola</th>
+                                <th>Último intento</th><th>Próxima comprobación</th><th>Referencia ERP</th>
+                            </tr></thead>
+                            <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td><a asp-action="Details" asp-route-id="@item.MessageId" asp-route-returnUrl="@returnUrl">Pedido #@item.PublicNumber</a>
+                                        <div>@item.CustomerName</div></td>
+                                    <td><strong>@OperationalAttentionDisplay.Label(item.Category)</strong>
+                                        <div>@OperationalAttentionDisplay.Guidance(item, Model.AsOfUtc)</div>
+                                        @if (item.Category == AttentionCategory.Review && item.CompletedAtUtc.HasValue)
+                                        {
+                                            <small class="d-block">Procesamiento detenido · @PortalDateTime.Age(item.CompletedAtUtc, Model.AsOfUtc)</small>
+                                        }
+                                        @if (item.LastErrorCode != null)
+                                        {
+                                            <small>Último código · @item.LastErrorCode</small>
+                                        }
+                                    </td>
+                                    <td>@PortalDateTime.Age(item.CreatedAtUtc, Model.AsOfUtc)
+                                        <small class="d-block">@PortalDateTime.Format(item.CreatedAtUtc)</small></td>
+                                    <td>@PortalDateTime.Format(item.LastAttemptAtUtc)</td>
+                                    <td>
+                                        @if (IntegrationStatusDisplay.HasScheduledWork(item.Status))
+                                        {
+                                            @PortalDateTime.Format(item.NextAttemptAtUtc)
+                                        }
+                                        else if (item.Status == IntegrationStatus.Processing && item.LeaseUntilUtc.HasValue)
+                                        {
+                                            <span>Fin del plazo · @PortalDateTime.Format(item.LeaseUntilUtc)</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Sin programar</span>
+                                        }
+                                    </td>
+                                    <td>@(item.ExternalOrderId ?? "Sin referencia")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <nav aria-label="Páginas de operaciones" class="d-flex align-items-center gap-3">
+                        <span>Página @Model.PageNumber de @Model.TotalPages</span>
+                        @if (Model.PageNumber > 1)
+                        {
+                            <a asp-action="Attention" asp-route-category="@Model.Category" asp-route-orderNumber="@Model.OrderNumber"
+                               asp-route-pageNumber="@(Model.PageNumber - 1)">Anterior</a>
+                        }
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <a asp-action="Attention" asp-route-category="@Model.Category" asp-route-orderNumber="@Model.OrderNumber"
+                               asp-route-pageNumber="@(Model.PageNumber + 1)">Siguiente</a>
+                        }
+                    </nav>
+                }
+            </div>
+        </section>
+        <section aria-labelledby="catalog-heading" class="card">
+            <div class="card-body">
+                <h2 id="catalog-heading" class="h5">Catálogo global · @catalogStatus</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Última sincronización correcta</dt><dd class="col-sm-8">@PortalDateTime.Format(catalog?.LastSuccessAtUtc)</dd>
+                    <dt class="col-sm-4">Antigüedad</dt>
+                    <dd class="col-sm-8">@(catalog?.LastSuccessAtUtc > Model.AsOfUtc ?
+                        "La fecha registrada está adelantada" : PortalDateTime.Age(catalog?.LastSuccessAtUtc, Model.AsOfUtc))</dd>
+                    <dt class="col-sm-4">Versión</dt><dd class="col-sm-8">@(catalog?.CurrentVersion.ToString() ?? "Sin registro")</dd>
+                    <dt class="col-sm-4">Último código de error</dt><dd class="col-sm-8">@(catalog?.LastErrorCode ?? "Sin registro")</dd>
+                </dl>
+            </div>
+        </section>
+    }
+</div>

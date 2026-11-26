@@ -27,6 +27,8 @@
         (Group: "ESPACIO DE TRABAJO", Controller: "Customers", Label: "Clientes", Icon: "users", Visible: canViewOrders),
         (Group: "ESPACIO DE TRABAJO", Controller: "Catalog", Label: "Catálogo", Icon: "box", Visible: authenticated),
         (Group: "GESTIÓN COMERCIAL", Controller: "CustomerPortfolio", Label: "Cartera comercial", Icon: "briefcase", Visible: isAdministrator),
+        (Group: "GESTIÓN COMERCIAL", Controller: "MyPortfolio", Label: "Mi cartera", Icon: "briefcase", Visible: User.IsInRole(AppRoles.Seller)),
+        (Group: "GESTIÓN COMERCIAL", Controller: "TeamPortfolio", Label: "Cartera del equipo", Icon: "briefcase", Visible: User.IsInRole(AppRoles.SalesSupervisor)),
         (Group: "GESTIÓN COMERCIAL", Controller: "Teams", Label: "Equipos", Icon: "users", Visible: canViewTeams),
         (Group: "CONTROL Y ACCESOS", Controller: "Integration", Label: "Integraciones", Icon: "link", Visible: canOperate),
         (Group: "CONTROL Y ACCESOS", Controller: "Audit", Label: "Auditoría", Icon: "activity", Visible: canOperate),
@@ -69,7 +71,7 @@
                         @foreach (var item in group)
                         {
                             bool active = item.Controller == activeController;
-                            <a asp-controller="@item.Controller" asp-action="Index" class="sidebar-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
+                            <a asp-controller="@item.Controller" asp-action="@(item.Controller == "Integration" ? "Attention" : "Index")" class="sidebar-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
                                 <partial name="_Icon" model="item.Icon" /><span>@item.Label</span>
                             </a>
                         }

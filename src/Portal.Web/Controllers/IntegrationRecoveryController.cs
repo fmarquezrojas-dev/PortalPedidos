@@ -33,6 +33,7 @@ public sealed class IntegrationRecoveryController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(
         Guid id,
+        string? returnUrl,
         CancellationToken cancellationToken)
     {
         if (id == Guid.Empty)
@@ -54,6 +55,7 @@ public sealed class IntegrationRecoveryController : Controller
             return View(new RecoverIntegrationViewModel
             {
                 MessageId = id,
+                ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null,
                 RowVersion = preview.RowVersion,
                 Preview = preview
             });
@@ -71,6 +73,7 @@ public sealed class IntegrationRecoveryController : Controller
         RecoverIntegrationViewModel model,
         CancellationToken cancellationToken)
     {
+        model.ReturnUrl = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl : null;
         if (id == Guid.Empty || id != model.MessageId)
         {
             return BadRequest();
@@ -143,7 +146,7 @@ public sealed class IntegrationRecoveryController : Controller
             return RedirectToAction(
                 "Details",
                 "Integration",
-                new { id });
+                new { id, returnUrl = model.ReturnUrl });
         }
         catch (UnauthorizedAccessException)
         {
