@@ -1,0 +1,35 @@
+name: Captura de pedidos
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: dotnet build PortalPedidos.slnx -c Release
+      - name: Preparar Chromium headless
+        run: |
+          python -m venv "$RUNNER_TEMP/capture-venv"
+          "$RUNNER_TEMP/capture-venv/bin/python" -m pip install -r docker/capture-requirements.txt
+          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/capture-chromium" "$RUNNER_TEMP/capture-venv/bin/python" -m playwright install --with-deps --only-shell chromium
+      - name: Ejecutar captura sobre las bases aisladas de Compose
+        # El setup de la demo asigna los secretos a los UID de los contenedores.
+        run: |
+          sudo env "PATH=$PATH" "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/capture-chromium" \
+            pwsh -NoProfile -File docker/Test-Capture.ps1 -MeasureBaseline -Python "$RUNNER_TEMP/capture-venv/bin/python"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidencia-captura
+          path: artifacts/portalpedidos-capture-*/*.json
+          if-no-files-found: ignore

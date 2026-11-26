@@ -69,9 +69,7 @@ public sealed class LoseOrderResponseOnceFilter : IEndpointFilter
             return await next(context);
         }
 
-        // Primero se ejecuta el endpoint real.
-        // Nuestro servicio de pedidos confirma su transacción
-        // antes de devolver el resultado.
+        // La pérdida de respuesta se simula después de confirmar la transacción del ERP.
         object? result = await next(context);
 
         // El contrato actual del simulador devuelve HTTP 200

@@ -115,6 +115,12 @@
             Volver al pedido
         </a>
     }
+    else if (Model.CustomerOutsidePortfolio)
+    {
+        <p>El borrador conserva sus líneas y cantidades.</p>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Editar borrador</a>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Volver al pedido</a>
+    }
     else
     {
         <div class="alert alert-warning">

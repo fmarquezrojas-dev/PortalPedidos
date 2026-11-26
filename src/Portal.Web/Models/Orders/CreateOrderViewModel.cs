@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -43,6 +43,10 @@ public sealed class CreateOrderViewModel
 
     [BindNever]
     [ValidateNever]
+    public IReadOnlyDictionary<Guid, decimal> SavedPrices { get; set; } = new Dictionary<Guid, decimal>();
+
+    [BindNever]
+    [ValidateNever]
     public OrderDraftFormDataDto FormData { get; set; } = new();
 }
 
@@ -50,6 +54,9 @@ public sealed class CreateOrderLineViewModel
 {
     [Required(ErrorMessage = "Selecciona el producto de cada línea.")]
     public Guid? ProductId { get; set; }
+
+    // Precio mostrado en el navegador, solo para explicar cambios al volver al formulario.
+    public string? QuotedPrice { get; set; }
 
     [Range(
         1,

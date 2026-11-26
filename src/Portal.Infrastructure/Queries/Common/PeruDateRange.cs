@@ -17,4 +17,6 @@ internal static class PeruDateRange
         return (from.HasValue ? Convert(from.Value) : null,
             to.HasValue ? Convert(to.Value.AddDays(1)) : null);
     }
+    public static DateOnly LocalDate(DateTime utc) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, Zone));
 }

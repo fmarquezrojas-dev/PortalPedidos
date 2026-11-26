@@ -16,6 +16,7 @@
         <p class="text-muted mb-0">
             Consulta los envíos, reintentos y resultados de los pedidos.
         </p>
+        <a asp-action="Attention" class="btn btn-primary mt-3">Atención operativa</a>
     </div>
 
     <div class="card shadow-sm">
@@ -161,6 +162,7 @@
                                     <td class="text-end">
                                         <a asp-controller="Integration"
                                            asp-action="Details"
+                                           asp-route-returnUrl="@Url.Action("Index", new { Model.OrderNumber, Model.Status, Model.PageNumber })"
                                            asp-route-id="@item.MessageId"
                                            class="btn btn-sm btn-outline-primary text-nowrap">
                                             Ver seguimiento

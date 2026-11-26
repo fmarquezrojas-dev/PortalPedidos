@@ -5,6 +5,8 @@ namespace Portal.Application.DTOs.Orders;
 
 public sealed class OrderDetailDto
 {
+    public string? Creator { get; init; }
+    public string? HistoricalHolder { get; init; }
     public OrderListItemDto Order { get; init; } = new();
 
     public DateOnly RequestedDate { get; init; }

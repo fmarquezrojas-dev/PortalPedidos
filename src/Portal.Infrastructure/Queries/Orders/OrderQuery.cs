@@ -212,6 +212,13 @@ public sealed class OrderQuery : IOrderQuery
 
         return new OrderDetailDto
         {
+            Creator = await _dbContext.Users.Where(u => u.Id == order.OwnerUserId)
+                .Select(u => u.Email ?? u.UserName).SingleOrDefaultAsync(cancellationToken),
+            HistoricalHolder = await (from a in _dbContext.CustomerAssignments
+                join m in _dbContext.SalesTeamMembers on a.SalesTeamMemberId equals m.Id
+                join u in _dbContext.Users on m.UserId equals u.Id
+                where a.Id == order.CustomerAssignmentId select u.Email ?? u.UserName)
+                .SingleOrDefaultAsync(cancellationToken),
             Order = new OrderListItemDto
             {
                 Id = order.Id,

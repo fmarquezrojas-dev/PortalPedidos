@@ -1,0 +1,53 @@
+{
+  "order": {
+    "Id": "FF685FC5-2B94-4061-81ED-87B36DB95BC2",
+    "PublicNumber": 1004,
+    "Status": "Confirmed",
+    "Subtotal": "86.42",
+    "ExternalOrderId": "SIM-77a1d72455194c5cbf705be9e7c67901"
+  },
+  "receipt": {
+    "Id": "77A1D724-5519-4C5C-BF70-5BE9E7C67901",
+    "IdempotencyKey": "FF685FC5-2B94-4061-81ED-87B36DB95BC2",
+    "Status": "Accepted",
+    "ExternalOrderId": "SIM-77a1d72455194c5cbf705be9e7c67901"
+  },
+  "outbox": {
+    "Id": "7CD28412-7A4A-4EE4-9199-23F4EFBAC948"
+  },
+  "attempts": [
+    {
+      "Operation": "Submit",
+      "ResultCode": "ERP_CONNECTION_FAILED"
+    },
+    {
+      "Operation": "Lookup",
+      "ResultCode": "ORDER_ACCEPTED",
+      "HttpStatus": 200
+    }
+  ],
+  "totalsBefore": {
+    "orders": 3,
+    "messages": 2,
+    "receipts": 2
+  },
+  "totalsAfter": {
+    "orders": 4,
+    "messages": 3,
+    "receipts": 3
+  },
+  "faultMarkerCount": 1,
+  "observedUncertain": true,
+  "observedSchedule": {
+    "NextAttemptAtUtc": "2026-11-26T00:31:28.641",
+    "StartedAtUtc": "2026-11-26T00:31:16.278"
+  },
+  "stockBefore": {
+    "OnHand": "1000.0000",
+    "Reserved": "0.0000"
+  },
+  "stockAfter": {
+    "OnHand": "1000.0000",
+    "Reserved": "7.0000"
+  }
+}

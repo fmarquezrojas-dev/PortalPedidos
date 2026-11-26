@@ -141,6 +141,24 @@ public sealed class OrdersController : Controller
 
     [HttpGet]
     [Authorize(Policy = AppPolicies.CreateOrders)]
+    public async Task<IActionResult> SearchCustomers(string? term, CancellationToken cancellationToken, int offset = 0)
+    {
+        term = term?.Trim();
+        if (!ModelState.IsValid || string.IsNullOrEmpty(term) || term.Length > 100 || offset < 0) return BadRequest();
+        return Json(await _draftService.SearchCustomersAsync(term, offset, cancellationToken));
+    }
+
+    [HttpGet]
+    [Authorize(Policy = AppPolicies.CreateOrders)]
+    public async Task<IActionResult> SearchProducts(string? term, CancellationToken cancellationToken, int offset = 0)
+    {
+        term = term?.Trim();
+        if (!ModelState.IsValid || string.IsNullOrEmpty(term) || term.Length > 100 || offset < 0) return BadRequest();
+        return Json(await _draftService.SearchProductsAsync(term, offset, cancellationToken));
+    }
+
+    [HttpGet]
+    [Authorize(Policy = AppPolicies.CreateOrders)]
     public async Task<IActionResult> Create(
         CancellationToken cancellationToken = default,
         [FromQuery] Guid? customerId = null)
@@ -156,7 +174,7 @@ public sealed class OrdersController : Controller
         }
 
         var formData = await _draftService.GetFormDataAsync(
-            cancellationToken);
+            customerId, Array.Empty<Guid>(), cancellationToken);
 
         var model = new CreateOrderViewModel
         {
@@ -170,7 +188,7 @@ public sealed class OrdersController : Controller
         {
             // GetFormDataAsync ya aplica la regla compartida de elegibilidad.
             // La preselección no sustituye la validación al guardar.
-            if (formData.Customers.Any(customer => customer.Id == customerId.Value))
+            if (formData.CustomerIsEligible)
             {
                 model.CustomerId = customerId.Value;
             }
@@ -279,7 +297,7 @@ public sealed class OrdersController : Controller
         }
 
         model.FormData = await _draftService.GetFormDataAsync(
-            cancellationToken);
+            model.CustomerId, SelectedProductIds(model), cancellationToken);
 
         if (model.CatalogVersion != model.FormData.CatalogVersion)
         {
@@ -325,7 +343,7 @@ public sealed class OrdersController : Controller
         }
 
         var formData = await _draftService.GetFormDataAsync(
-            cancellationToken);
+            draft.CustomerId, draft.Lines.Select(line => line.ProductId).ToArray(), cancellationToken);
 
         var model = new CreateOrderViewModel
         {
@@ -333,6 +351,7 @@ public sealed class OrdersController : Controller
             DraftId = draft.Id,
             PublicNumber = draft.PublicNumber,
             SavedSubtotal = draft.Subtotal,
+            SavedPrices = draft.Lines.ToDictionary(l => l.ProductId, l => l.UnitPrice),
             CustomerId = draft.CustomerId,
             RequestedDate = draft.RequestedDate,
             CatalogVersion = formData.CatalogVersion,
@@ -503,9 +522,10 @@ public sealed class OrdersController : Controller
         model.IsEdit = true;
         model.PublicNumber = draft.PublicNumber;
         model.SavedSubtotal = draft.Subtotal;
+        model.SavedPrices = draft.Lines.ToDictionary(l => l.ProductId, l => l.UnitPrice);
 
         model.FormData = await _draftService.GetFormDataAsync(
-            cancellationToken);
+            model.CustomerId, SelectedProductIds(model), cancellationToken);
 
         if (model.CatalogVersion != model.FormData.CatalogVersion)
         {
@@ -522,7 +542,7 @@ public sealed class OrdersController : Controller
         // Solicitar una nueva confirmación después de presentar errores.
         model.AcceptCurrentPrices = false;
 
-        ModelState.Remove(nameof(CreateOrderViewModel.AcceptCurrentPrices));
+        ModelState.SetModelValue(nameof(CreateOrderViewModel.AcceptCurrentPrices), false, "false");
 
         AddCustomerAvailabilityError(model);
 
@@ -842,6 +862,7 @@ public sealed class OrdersController : Controller
             catch (OrderSubmissionException exception)
             {
                 Response.StatusCode = 409;
+                model.CustomerOutsidePortfolio = exception.Code == "OUTSIDE_PORTFOLIO";
 
                 _logger.LogWarning(
                     "Envío bloqueado para {OrderId}. Código: {Code}.",
@@ -917,9 +938,10 @@ public sealed class OrdersController : Controller
         return View(model);
     }
 
-    // Aviso de presentación basado en el selector filtrado por el servicio.
-    // No consulta responsables ni cambia la propiedad o el estado del borrador.
-    // CreateAsync, UpdateAsync y QueueAsync mantienen la validación definitiva.
+    private static Guid[] SelectedProductIds(CreateOrderViewModel model) =>
+        model.Lines.Where(l => l.ProductId.HasValue)
+            .Select(l => l.ProductId!.Value).Distinct().ToArray();
+
     private void AddCustomerAvailabilityError(CreateOrderViewModel model)
     {
         if (!model.CustomerId.HasValue || model.CustomerId.Value == Guid.Empty)
@@ -927,10 +949,7 @@ public sealed class OrdersController : Controller
             return;
         }
 
-        bool customerIsAvailable = model.FormData.Customers.Any(
-            customer => customer.Id == model.CustomerId.Value);
-
-        if (customerIsAvailable)
+        if (model.FormData.CustomerIsEligible)
         {
             return;
         }

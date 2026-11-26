@@ -88,4 +88,6 @@ public class PortalDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CustomerAssignment> CustomerAssignments
     => Set<CustomerAssignment>();
 
+    public DbSet<CustomerCoverage> CustomerCoverages => Set<CustomerCoverage>();
+
 }

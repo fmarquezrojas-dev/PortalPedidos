@@ -22,4 +22,7 @@ public sealed class SubmitOrderViewModel
     [BindNever]
     [ValidateNever]
     public bool CanSubmit { get; set; }
+
+    [BindNever]
+    public bool CustomerOutsidePortfolio { get; set; }
 }

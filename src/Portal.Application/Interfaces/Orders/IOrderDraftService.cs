@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Portal.Application.DTOs.Orders;
@@ -7,7 +7,12 @@ namespace Portal.Application.Interfaces.Orders;
 
 public interface IOrderDraftService
 {
+    Task<CaptureSearchPage<CustomerOptionDto>> SearchCustomersAsync(string term, int offset, CancellationToken cancellationToken);
+
+    Task<CaptureSearchPage<ProductOptionDto>> SearchProductsAsync(string term, int offset, CancellationToken cancellationToken);
+
     Task<OrderDraftFormDataDto> GetFormDataAsync(
+        Guid? customerId, Guid[] productIds,
         CancellationToken cancellationToken = default);
 
     Task<Guid> CreateAsync(

@@ -40,6 +40,10 @@ public static class PortalDateTime
             PeruCulture);
     }
 
+    public static string CoverageLastDay(DateTime exclusiveEndUtc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(AsUtc(exclusiveEndUtc), PeruTimeZone)
+            .AddDays(-1).ToString("dd/MM/yyyy", PeruCulture);
+
     public static string Age(DateTime? utcValue, DateTime nowUtc)
     {
         if (!utcValue.HasValue)

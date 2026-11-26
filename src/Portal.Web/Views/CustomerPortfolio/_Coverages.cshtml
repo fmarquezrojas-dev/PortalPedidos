@@ -1,0 +1,51 @@
+@model Portal.Web.Models.Customers.CustomerPortfolioDetailsViewModel
+@using Portal.Web.Formatting
+<section class="card card-body mb-4" aria-labelledby="coverages">
+    <h2 id="coverages" class="h5">Suplencias del cliente</h2>
+    @if (Model.Portfolio.CustomerIsActive && Model.Portfolio.CurrentAssignment is { IsOperational: true } assignment)
+    {
+        <form asp-action="GrantCoverage" method="post" class="row g-3 mb-4">
+            <input type="hidden" name="CustomerId" value="@Model.Portfolio.CustomerId" />
+            <input type="hidden" name="AssignmentId" value="@assignment.Id" />
+            <div class="col-md-4"><label for="substitute-email" class="form-label">Correo del suplente del mismo equipo</label>
+                <input class="form-control" id="substitute-email" name="Email" type="email" required maxlength="256" /></div>
+            <div class="col-md-4"><label for="coverage-from" class="form-label">Desde · Perú</label>
+                <input class="form-control" id="coverage-from" name="From" type="date" required /></div>
+            <div class="col-md-4"><label for="coverage-to" class="form-label">Hasta inclusive · Perú</label>
+                <input class="form-control" id="coverage-to" name="To" type="date" required /></div>
+            <div class="col-md-8"><label for="grant-reason" class="form-label">Motivo de la suplencia</label>
+                <input class="form-control" id="grant-reason" name="Reason" required minlength="5" maxlength="250" /></div>
+            <div class="col-md-4 align-self-end"><button class="btn btn-primary">Registrar suplencia</button></div>
+        </form>
+    }
+    @if (Model.Coverages.Count == 0)
+    {
+        <p>Sin suplencias registradas.</p>
+    }
+    @foreach (var c in Model.Coverages)
+    {
+        var status = c.RevokedAtUtc.HasValue ? "Revocada" : c.Problem != null ? c.Problem :
+            c.EndsAtUtc <= Model.AsOfUtc ? "Finalizada por vencimiento" :
+            c.StartsAtUtc > Model.AsOfUtc ? "Programada" : "Vigente";
+        <article class="border-top py-3">
+            <strong>@c.Substitute · @status</strong>
+            <div>Titular de origen · @c.Holder</div>
+            <div>Desde @PortalDateTime.Format(c.StartsAtUtc) hasta el @PortalDateTime.CoverageLastDay(c.EndsAtUtc) inclusive en Perú</div>
+            <div>Autorizó @c.GrantedBy el @PortalDateTime.Format(c.GrantedAtUtc) · @c.Reason</div>
+            @if (c.RevokedAtUtc.HasValue)
+            {
+                <div>Revocó @c.RevokedBy el @PortalDateTime.Format(c.RevokedAtUtc) · @c.RevokeReason</div>
+            }
+            else if (c.EndsAtUtc > Model.AsOfUtc)
+            {
+                <form asp-action="RevokeCoverage" method="post" class="d-flex gap-2 mt-2 align-items-end">
+                    <input type="hidden" name="CustomerId" value="@Model.Portfolio.CustomerId" />
+                    <input type="hidden" name="CoverageId" value="@c.Id" />
+                    <div><label for="reason-@c.Id" class="form-label">Motivo de revocación</label>
+                        <input id="reason-@c.Id" name="Reason" required minlength="5" maxlength="250" class="form-control" /></div>
+                    <button class="btn btn-outline-danger">Revocar suplencia</button>
+                </form>
+            }
+        </article>
+    }
+</section>

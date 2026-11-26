@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Portal.Application.DTOs.Orders;
@@ -20,8 +20,13 @@ public sealed class ProductOptionDto
 
     public string Name { get; init; } = string.Empty;
 
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsActive { get; init; }
+
     public decimal UnitPrice { get; init; }
 }
+
+public sealed record CaptureSearchPage<T>(IReadOnlyList<T> Items, bool HasMore);
 
 public sealed class OrderDraftFormDataDto
 {
@@ -29,8 +34,9 @@ public sealed class OrderDraftFormDataDto
 
     public DateOnly TodayInPeru { get; init; }
 
-    public IReadOnlyList<CustomerOptionDto> Customers { get; init; }
-        = Array.Empty<CustomerOptionDto>();
+    public CustomerOptionDto? Customer { get; init; }
+
+    public bool CustomerIsEligible { get; init; }
 
     public IReadOnlyList<ProductOptionDto> Products { get; init; }
         = Array.Empty<ProductOptionDto>();

@@ -55,7 +55,7 @@ public class AccountController : Controller
         var user = await _userManager.FindByEmailAsync(
             model.Email.Trim());
 
-        // Usamos el mismo mensaje para no revelar si la cuenta existe.
+        // Un mensaje común impide distinguir una cuenta inexistente de una inactiva.
         if (user is null || !user.IsActive)
         {
             AddLoginError();

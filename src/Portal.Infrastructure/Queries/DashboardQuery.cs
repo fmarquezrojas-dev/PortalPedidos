@@ -8,6 +8,7 @@ using Portal.Application.Interfaces.Dashboard;
 using Portal.Application.Interfaces.Security;
 using Portal.Domain.Enums;
 using Portal.Infrastructure.Persistence;
+using Portal.Infrastructure.Queries.Integration;
 using Portal.Infrastructure.Queries.Security;
 
 namespace Portal.Infrastructure.Queries.Dashboard;
@@ -15,9 +16,6 @@ namespace Portal.Infrastructure.Queries.Dashboard;
 public class DashboardQuery : IDashboardQuery
 {
     private static readonly TimeSpan CatalogMaximumAge =
-        TimeSpan.FromMinutes(5);
-
-    private static readonly TimeSpan PendingWarningAge =
         TimeSpan.FromMinutes(5);
 
     private readonly PortalDbContext _db;
@@ -226,7 +224,7 @@ public class DashboardQuery : IDashboardQuery
                 message.Status == IntegrationStatus.DeadLetter);
 
             DateTime warningThreshold =
-                now - PendingWarningAge;
+                now - OperationalThresholds.PendingWarningAge;
 
             model.OverdueIntegrationMessages =
                 await unresolvedQuery.CountAsync(

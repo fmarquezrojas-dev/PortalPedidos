@@ -45,10 +45,7 @@ using Portal.Infrastructure.Services.Teams;
 using Portal.Infrastructure.Services.Customers;
 
 
-// ============================================================
-// 1. Identificar los comandos de desarrollo.
-// ============================================================
-
+// Comandos de mantenimiento
 bool seedRoles = args.Contains("--seed-roles");
 bool demoMigrate = args.Contains("--demo-migrate");
 bool seedUsers = args.Contains("--seed-users");
@@ -77,7 +74,7 @@ if (commandGroups > 1)
         "--check-erp y --sync-catalog.");
 }
 
-// Excluir nuestros comandos personalizados de la configuración.
+// Los comandos de mantenimiento se procesan por separado de la configuración de ASP.NET Core.
 var builder = WebApplication.CreateBuilder(
     args.Where(arg =>
         arg != "--demo-migrate" &&
@@ -111,12 +108,10 @@ if (dockerDemo)
     });
 }
 
-// ============================================================
-// 2. Registrar MVC y el acceso al contexto HTTP.
-// ============================================================
-
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<CommercialPortfolioQuery>();
+builder.Services.AddScoped<CustomerCoverageService>();
 builder.Services.AddSingleton<Portal.Application.Interfaces.Search.ISearchAssistant,
     Portal.Infrastructure.Services.Search.LocalSearchAssistant>();
 
@@ -127,10 +122,6 @@ builder.Services.AddScoped<IUserAdministrationService, UserAdministrationService
 builder.Services.Configure<SecurityStampValidatorOptions>(options =>
     options.ValidationInterval = TimeSpan.Zero);
 
-// ============================================================
-// 3. Obtener la conexión a SQL Server.
-// ============================================================
-
 var connectionString = builder.Configuration
     .GetConnectionString("PortalDb");
 
@@ -140,19 +131,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "No se encontró una conexión válida para PortalDb.");
 }
 
-// ============================================================
-// 4. Registrar el contexto de base de datos.
-// ============================================================
-
 builder.Services.AddDbContext<PortalDbContext>(options =>
 {
     options.UseSqlServer(connectionString);
 });
 
-// ============================================================
-// 5. Configurar usuarios, roles y contraseñas.
-// ============================================================
-
+// Identity y sesión
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
@@ -174,10 +158,6 @@ builder.Services
     .AddEntityFrameworkStores<PortalDbContext>()
     .AddDefaultTokenProviders();
 
-// ============================================================
-// 6. Configurar la cookie y la validación de la sesión.
-// ============================================================
-
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = dockerDemo ? "PortalPedidos.Demo.Auth" : "PortalPedidos.Auth";
@@ -195,18 +175,11 @@ builder.Services.ConfigureApplicationCookie(options =>
         ApplicationCookieValidator.ValidateAsync;
 });
 
-// ============================================================
-// 7. Registrar las políticas centralizadas.
-// ============================================================
-
 // Las políticas se definen en Security/PortalAuthorization.cs.
 builder.Services.AddAuthorization(
     PortalAuthorization.Configure);
 
-// ============================================================
-// 8. Registrar servicios y consultas del portal.
-// ============================================================
-
+// Servicios de aplicación
 // Usuario autenticado y permisos.
 builder.Services.AddScoped<
     ICurrentUser,
@@ -289,10 +262,7 @@ builder.Services.AddScoped<
     CustomerEligibilityQuery>();
 
 
-// ============================================================
-// 9. Registrar el cliente HTTP del catálogo del ERP.
-// ============================================================
-
+// Clientes HTTP del ERP
 builder.Services
     .AddHttpClient<IErpClient, ErpSimulatorClient>(
         (serviceProvider, client) =>
@@ -356,10 +326,6 @@ builder.Services
             AllowAutoRedirect = false,
             UseCookies = false
         });
-
-// ============================================================
-// 10. Registrar el cliente HTTP de pedidos del ERP.
-// ============================================================
 
 builder.Services
     .AddHttpClient<IErpOrderClient, ErpSimulatorOrderClient>(
@@ -425,10 +391,6 @@ builder.Services
             UseCookies = false
         });
 
-// ============================================================
-// 11. Registrar los servicios en segundo plano.
-// ============================================================
-
 // Durante los comandos de mantenimiento no se registran
 // los trabajadores automáticos.
 bool catalogSyncEnabled = builder.Configuration
@@ -462,11 +424,6 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     ICustomerPortfolioListQuery,
     CustomerPortfolioListQuery>();
-// ============================================================
-// 12. Construir la aplicación.
-// ============================================================
-
-// Todos los registros de servicios deben estar antes de esta línea.
 var app = builder.Build();
 
 if (demoMigrate)
@@ -475,10 +432,6 @@ if (demoMigrate)
     await scope.ServiceProvider.GetRequiredService<PortalDbContext>().Database.MigrateAsync();
     return;
 }
-
-// ============================================================
-// 13. Restringir los comandos al entorno Development.
-// ============================================================
 
 if (isMaintenanceCommand &&
     !app.Environment.IsDevelopment())
@@ -489,10 +442,7 @@ if (isMaintenanceCommand &&
         "en el entorno Development.");
 }
 
-// ============================================================
-// 14. Sincronizar el catálogo por comando.
-// ============================================================
-
+// Sincronización manual del catálogo
 if (syncCatalog)
 {
     using var scope = app.Services.CreateScope();
@@ -569,10 +519,7 @@ if (syncCatalog)
     return;
 }
 
-// ============================================================
-// 15. Consultar la conexión con el ERP por comando.
-// ============================================================
-
+// Comprobación de conectividad
 // Esta operación consulta el catálogo, pero no lo guarda.
 if (checkErp)
 {
@@ -637,10 +584,7 @@ if (checkErp)
     return;
 }
 
-// ============================================================
-// 16. Preparar roles y usuarios por comando.
-// ============================================================
-
+// Preparación de cuentas de desarrollo
 if (seedRoles || seedUsers)
 {
     // Crear primero los roles que todavía no existan.
@@ -763,19 +707,11 @@ if (seedRoles || seedUsers)
     return;
 }
 
-// ============================================================
-// 17. Configurar errores y HSTS fuera de desarrollo.
-// ============================================================
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
-
-// ============================================================
-// 18. Configurar el procesamiento de solicitudes.
-// ============================================================
 
 app.UseHttpsRedirection();
 
@@ -784,27 +720,15 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ============================================================
-// 19. Configurar los archivos estáticos.
-// ============================================================
-
 // Los recursos de wwwroot son públicos (CSS, JS, iconos y bibliotecas).
 // Atenderlos desde el enrutamiento evita validar Identity en cada descarga.
 // Los controladores siguen recorriendo autenticación y autorización.
 app.MapStaticAssets().ShortCircuit();
 
-// ============================================================
-// 20. Configurar la ruta principal de MVC.
-// ============================================================
-
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
-// ============================================================
-// 21. Endpoint de estado del proceso.
-// ============================================================
 
 // Indica que el servidor atiende solicitudes.
 // No comprueba SQL Server ni la conexión con el ERP.
@@ -816,10 +740,6 @@ app.MapGet("/health", () =>
         status = "running"
     });
 });
-
-// ============================================================
-// 22. Iniciar la aplicación.
-// ============================================================
 
 app.MapPortalHealthChecks();
 

@@ -3,12 +3,18 @@
 **/obj/
 .vs/
 .vscode/
+.codex/
+.idea/
+.venv/
+venv/
 *.user
 *.suo
 *.sln.docstates
 TestResults/
 artifacts/
 *.log
+*.tmp
+*.temp
 # Configuración privada y certificados
 .env
 .env.*
@@ -31,7 +37,9 @@ artifacts/
 /HANDOFF.md
 **/__pycache__/
 *.pyc
-**/Properties/PublishProfiles/
+**/Properties/PublishProfiles/*
+!src/Portal.Web/Properties/PublishProfiles/Folder.pubxml
+!src/ErpSimulator.Api/Properties/PublishProfiles/Folder.pubxml
 *.pem
 *.db
 *.sqlite

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +7,7 @@ using Portal.Application.DTOs.Customers;
 using Portal.Application.Interfaces.Customers;
 using Portal.Application.Interfaces.Security;
 using Portal.Domain.Entities;
+using Portal.Infrastructure.Queries.Common;
 
 namespace Portal.Infrastructure.Queries.Customers;
 
@@ -58,11 +59,7 @@ public sealed class CustomerDirectoryQuery : ICustomerDirectoryQuery
 
         if (normalizedSearch is not null)
         {
-            string searchText = normalizedSearch;
-
-            query = query.Where(customer =>
-                customer.ExternalCode.Contains(searchText) ||
-                customer.Name.Contains(searchText));
+            query = query.Matching(normalizedSearch);
         }
 
         // El directorio permite consultar clientes activos e inactivos.
@@ -89,20 +86,22 @@ public sealed class CustomerDirectoryQuery : ICustomerDirectoryQuery
 
         // Filtrar, ordenar y paginar en la base de datos.
         // Solo se recuperan los clientes de la página solicitada.
+        var eligibleIds = _db.Customers.Where(_customerEligibility.GetEligibleCustomerPredicate()).Select(c => c.Id);
         var customers = await query
             .OrderBy(customer => customer.ExternalCode)
             .ThenBy(customer => customer.Id)
             .Skip((currentPage - 1) * PageSize)
             .Take(PageSize)
+            .Select(customer => new { Customer = customer, Eligible = eligibleIds.Contains(customer.Id) })
             .ToListAsync(cancellationToken);
 
-        // Aplicar la regla común sobre los clientes recuperados.
-        // Evaluate no realiza consultas adicionales.
+        // La elegibilidad ya viene en la proyección SQL de esta página.
         var items = customers
-            .Select(customer =>
+            .Select(row =>
             {
-                var eligibility =
-                    _customerEligibility.Evaluate(customer);
+                var customer = row.Customer;
+                var eligibility = row.Eligible ? CustomerEligibilityResultDto.Eligible() :
+                    customer.IsActive ? CustomerEligibilityResultDto.OutsidePortfolio() : CustomerEligibilityResultDto.Inactive();
 
                 return new CustomerDirectoryItemDto
                 {

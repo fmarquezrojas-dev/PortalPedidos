@@ -16,6 +16,7 @@ public class SalesOrder
     public Guid? SalesTeamId { get; set; }
 
     public Guid CustomerId { get; set; }
+    public Guid? CustomerAssignmentId { get; set; }
 
     public string CustomerCode { get; set; } = string.Empty;
 

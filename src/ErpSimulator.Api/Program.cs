@@ -17,7 +17,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ErpSimulator.Api.Services.Orders;
 using Microsoft.Extensions.Logging;
 
-// 1. Detectar el comando de carga inicial.
 bool seedCatalog = args.Contains("--seed-catalog");
 bool demoMigrate = args.Contains("--demo-migrate");
 if (demoMigrate && seedCatalog)
@@ -34,10 +33,8 @@ builder.Services.AddHealthChecks().AddCheck<SimulatorDatabaseHealthCheck>(
     "simulator_database", failureStatus: HealthStatus.Unhealthy,
     tags: new[] { "ready" }, timeout: TimeSpan.FromSeconds(10));
 
-// 2. Registrar respuestas estándar para errores.
 builder.Services.AddProblemDetails();
 
-// 3. Obtener la conexión del simulador.
 var connectionString = builder.Configuration
     .GetConnectionString("ErpSimulatorDb");
 
@@ -47,16 +44,13 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "No se encontró una conexión válida para ErpSimulatorDb.");
 }
 
-// 4. Registrar el contexto de SQL Server.
 builder.Services.AddDbContext<ErpSimulatorDbContext>(options =>
 {
     options.UseSqlServer(connectionString);
 });
 
-// 5. Registrar el servicio de recepción de pedidos.
 builder.Services.AddScoped<ErpOrderService>();
 
-// 6. Construir la aplicación.
 var app = builder.Build();
 
 if (demoMigrate)
@@ -66,7 +60,6 @@ if (demoMigrate)
     return;
 }
 
-// 7. Ejecutar la carga inicial solo mediante comando.
 if (seedCatalog)
 {
     if (!app.Environment.IsDevelopment())
@@ -86,7 +79,6 @@ if (seedCatalog)
     return;
 }
 
-// 8. Leer la clave desde la configuración.
 string apiKey = builder.Configuration["Simulator:ApiKey"]
     ?? string.Empty;
 
@@ -103,11 +95,9 @@ if (string.IsNullOrWhiteSpace(apiKey) ||
         "ErpSimulator.Api con la clave que generaste.");
 }
 
-// 9. Configurar el tratamiento de errores y HTTPS.
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
-// 10. Comprobaciones del proceso.
 app.MapGet("/health", () =>
 {
     return Results.Ok(new
@@ -132,7 +122,6 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     AllowCachingResponses = false
 });
 
-// 11. Crear el grupo protegido de endpoints.
 var simulatorApi = app.MapGroup("/sim-api/v1");
 simulatorApi.AddEndpointFilter(new CorrelationIdEndpointFilter());
 
@@ -182,20 +171,16 @@ if (loseOrderResponseOnce)
         targetOrderId);
 }
 
-// 12. Publicar el catálogo.
 simulatorApi.MapGet(
     "/catalog",
     CatalogEndpoints.GetAsync);
 
-// 13. Recibir pedidos.
 simulatorApi.MapPost(
     "/orders",
     OrderEndpoints.SubmitAsync);
 
-// 14. Consultar el resultado de un pedido.
 simulatorApi.MapGet(
     "/orders/by-external-reference/{id:guid}",
     OrderEndpoints.GetByExternalReferenceAsync);
 
-// 15. Iniciar el servidor.
 app.Run();

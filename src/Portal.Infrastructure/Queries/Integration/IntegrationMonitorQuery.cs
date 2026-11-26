@@ -90,6 +90,61 @@ public sealed class IntegrationMonitorQuery
         };
     }
 
+    public async Task<OperationalAttention> GetAttentionAsync(
+        long? orderNumber, AttentionCategory? category, int pageNumber,
+        CancellationToken cancellationToken = default)
+    {
+        RequireAccess();
+        DateTime now = DateTime.UtcNow;
+        DateTime cutoff = now - OperationalThresholds.PendingWarningAge;
+        var open = BuildQuery().Where(item =>
+            item.Status != IntegrationStatus.Rejected && item.Status != IntegrationStatus.Succeeded);
+        if (orderNumber.HasValue)
+        {
+            open = open.Where(item => item.PublicNumber == orderNumber.Value);
+        }
+
+        var classified = open.Select(item => new
+        {
+            Item = item,
+            Category = item.Status == IntegrationStatus.DeadLetter ? AttentionCategory.Review
+                : item.Status == IntegrationStatus.Unknown ? AttentionCategory.Uncertain
+                : item.Status == IntegrationStatus.Processing &&
+                    (item.LeaseUntilUtc == null || item.LeaseUntilUtc <= now) ? AttentionCategory.ExpiredLease
+                : item.CreatedAtUtc < cutoff ? AttentionCategory.Delayed
+                : AttentionCategory.Monitoring
+        });
+
+        var counts = await classified.GroupBy(row => row.Category)
+            .Select(group => new { Category = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.Category, row => row.Count, cancellationToken);
+        int total = category.HasValue ? counts.GetValueOrDefault(category.Value) : counts.Values.Sum();
+        int pages = Math.Max(1, (int)Math.Ceiling((double)total / PageSize));
+        pageNumber = Math.Clamp(pageNumber, 1, pages);
+        if (category.HasValue)
+        {
+            classified = classified.Where(row => row.Category == category.Value);
+        }
+
+        var items = await classified.OrderBy(row => row.Category)
+            .ThenBy(row => row.Item.CreatedAtUtc).ThenBy(row => row.Item.MessageId)
+            .Skip((pageNumber - 1) * PageSize).Take(PageSize)
+            .Select(row => new OperationalItem(
+                row.Item.MessageId, row.Item.PublicNumber, row.Item.CustomerName, row.Item.Status,
+                row.Category, row.Item.CreatedAtUtc,
+                _db.IntegrationAttempts.Where(a => a.MessageId == row.Item.MessageId &&
+                        (a.Operation == "Submit" || a.Operation == "Lookup"))
+                    .OrderByDescending(a => a.AttemptNumber)
+                    .Select(a => (DateTime?)a.StartedAtUtc).FirstOrDefault(),
+                row.Item.NextAttemptAtUtc, row.Item.LeaseUntilUtc, row.Item.CompletedAtUtc,
+                row.Item.LastErrorCode, row.Item.ExternalOrderId))
+            .ToListAsync(cancellationToken);
+        var catalog = await _db.CatalogSyncStates.AsNoTracking()
+            .SingleOrDefaultAsync(state => state.Id == 1, cancellationToken);
+
+        return new OperationalAttention(now, orderNumber, category, counts, total, pageNumber, pages, items, catalog);
+    }
+
     public async Task<IntegrationMonitorDetailDto?> GetByIdAsync(
         Guid messageId,
         CancellationToken cancellationToken = default)

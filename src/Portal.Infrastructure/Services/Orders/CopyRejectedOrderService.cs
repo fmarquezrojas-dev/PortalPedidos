@@ -12,6 +12,8 @@ using Portal.Application.Interfaces.Security;
 using Portal.Domain.Entities;
 using Portal.Domain.Enums;
 using Portal.Infrastructure.Persistence;
+using Portal.Infrastructure.Queries.Customers;
+using Portal.Infrastructure.Services.Customers;
 
 namespace Portal.Infrastructure.Services.Orders;
 
@@ -20,15 +22,17 @@ public class CopyRejectedOrderService : ICopyRejectedOrderService
     private readonly PortalDbContext _db;
     private readonly ICurrentUser _currentUser;
     private readonly ICustomerEligibilityService _customerEligibility;
+    private readonly CommercialPortfolioQuery _portfolio;
 
     public CopyRejectedOrderService(
         PortalDbContext db,
         ICurrentUser currentUser,
-        ICustomerEligibilityService customerEligibility)
+        ICustomerEligibilityService customerEligibility, CommercialPortfolioQuery portfolio)
     {
         _db = db;
         _currentUser = currentUser;
         _customerEligibility = customerEligibility;
+        _portfolio = portfolio;
     }
 
     public async Task<CopyRejectedOrderPreviewDto?> GetPreviewAsync(
@@ -140,6 +144,7 @@ public class CopyRejectedOrderService : ICopyRejectedOrderService
         await LockCatalogAsync(cancellationToken);
 
         // Volver a validar con los datos actuales del catálogo.
+        await PortfolioLocks.ForCustomerAsync(_db, source.CustomerId, false, cancellationToken);
         // BuildPreviewAsync utiliza la regla común de elegibilidad.
         var preview = await BuildPreviewAsync(
             source,
@@ -181,6 +186,7 @@ public class CopyRejectedOrderService : ICopyRejectedOrderService
             SalesTeamId = salesTeamId,
 
             CustomerId = source.CustomerId,
+            CustomerAssignmentId = await _portfolio.HolderAssignmentAsync(source.CustomerId, cancellationToken),
             CustomerCode = preview.CustomerCode,
             CustomerName = preview.CustomerName,
 
@@ -422,7 +428,7 @@ public class CopyRejectedOrderService : ICopyRejectedOrderService
         if (source.Currency != "PEN")
         {
             preview.Problems.Add(
-                "Esta versión del portal solo permite pedidos en PEN.");
+                "El pedido de origen debe estar expresado en soles (PEN).");
         }
 
         var catalog = await _db.CatalogSyncStates
@@ -465,7 +471,7 @@ public class CopyRejectedOrderService : ICopyRejectedOrderService
         // Aplicar la misma regla utilizada por el selector
         // y las operaciones de creación, edición y envío.
         var customerEligibility =
-            _customerEligibility.Evaluate(customer);
+            await _customerEligibility.EvaluateAsync(customer, cancellationToken);
 
         if (customer is null || !customerEligibility.IsEligible)
         {

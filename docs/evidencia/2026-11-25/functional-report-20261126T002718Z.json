@@ -1,0 +1,120 @@
+{
+  "label": "DOCKER-FUNCTIONAL-20261126T002718Z",
+  "method": "HTTPS MVC forms + read-only SQL in portalpedidos-capture-925c36381152",
+  "passed": [
+    "Scope: healthy demo services and exact Docker database destinations verified.",
+    "Admin/seller login, clients and catalog; seller denied Users, Integration and Audit by backend (403).",
+    "Quantity zero rejected by server validation; no order persisted.",
+    "Draft reopened twice: two lines, quantities 2/3, prices and subtotal preserved in HTML and SQL.",
+    "ERP interruption: order stays Queued, communication retry scheduled, no rejection/receipt; duplicate submit creates no second outbox message.",
+    "ERP recovered automatically: exactly one Accepted receipt and stock reservation; repeated confirmed submission has no duplicate commercial effect.",
+    "Order/ERP references, status history, failed/successful attempts, integration monitor and audit details verified.",
+    "Both sessions logged out; auth cookies removed and protected requests redirect to Login."
+  ],
+  "failed": [],
+  "orderId": "bddd5704-d054-478d-9d37-b87df8af9f26",
+  "publicNumber": 1002,
+  "customer": "C009",
+  "lines": [
+    {
+      "code": "P013",
+      "quantity": 2,
+      "price": "7.5"
+    },
+    {
+      "code": "P014",
+      "quantity": 3,
+      "price": "16.0"
+    }
+  ],
+  "subtotal": "63.0",
+  "messageId": "0624C6BA-C0B8-4687-8B11-D9B2614BD083",
+  "interruption": {
+    "Id": "0624C6BA-C0B8-4687-8B11-D9B2614BD083",
+    "Status": "Unknown",
+    "AttemptCount": 1,
+    "LastErrorCode": "ERP_CONNECTION_FAILED"
+  },
+  "erpReference": "SIM-7ad22644c9194479ba19b28d962e9570",
+  "history": [
+    {
+      "NewStatus": "Draft",
+      "Reason": "Borrador creado desde el portal."
+    },
+    {
+      "PreviousStatus": "Draft",
+      "NewStatus": "Queued",
+      "Reason": "Pedido confirmado por el usuario y puesto en cola."
+    },
+    {
+      "PreviousStatus": "Queued",
+      "NewStatus": "Confirmed",
+      "Reason": "ORDER_ACCEPTED: Pedido aceptado y existencias reservadas."
+    }
+  ],
+  "attempts": [
+    {
+      "AttemptNumber": 1,
+      "Operation": "Submit",
+      "ResultCode": "ERP_CONNECTION_FAILED"
+    },
+    {
+      "AttemptNumber": 2,
+      "Operation": "Lookup",
+      "HttpStatus": 404,
+      "ResultCode": "ORDER_RESULT_NOT_FOUND"
+    },
+    {
+      "AttemptNumber": 3,
+      "Operation": "Submit",
+      "HttpStatus": 200,
+      "ResultCode": "ORDER_ACCEPTED"
+    }
+  ],
+  "audits": [
+    {
+      "Id": 4,
+      "Action": "Order.DraftCreated"
+    },
+    {
+      "Id": 5,
+      "Action": "Order.SubmissionQueued"
+    },
+    {
+      "Id": 6,
+      "Action": "Integration.Failed"
+    },
+    {
+      "Id": 7,
+      "Action": "Integration.LookupNotFound"
+    },
+    {
+      "Id": 8,
+      "Action": "Order.ErpConfirmed"
+    }
+  ],
+  "stockBefore": [
+    {
+      "ItemCode": "P013",
+      "OnHand": "50.0000",
+      "Reserved": "0.0000"
+    },
+    {
+      "ItemCode": "P014",
+      "OnHand": "28.0000",
+      "Reserved": "0.0000"
+    }
+  ],
+  "stockAfter": [
+    {
+      "ItemCode": "P013",
+      "OnHand": "50.0000",
+      "Reserved": "2.0000"
+    },
+    {
+      "ItemCode": "P014",
+      "OnHand": "28.0000",
+      "Reserved": "3.0000"
+    }
+  ]
+}

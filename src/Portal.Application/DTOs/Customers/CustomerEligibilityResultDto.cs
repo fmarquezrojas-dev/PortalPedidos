@@ -26,6 +26,9 @@ public sealed class CustomerEligibilityResultDto
             message: null);
     }
 
+    public static CustomerEligibilityResultDto OutsidePortfolio() => new(false, "OUTSIDE_PORTFOLIO",
+        "No tienes titularidad ni suplencia vigente para este cliente. Selecciona otro cliente de Mi cartera en el borrador.");
+
     public static CustomerEligibilityResultDto Unavailable()
     {
         return new CustomerEligibilityResultDto(

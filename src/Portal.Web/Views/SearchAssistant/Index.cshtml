@@ -9,7 +9,7 @@
             <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
             <label asp-for="Question" class="form-label">¿Qué necesitas encontrar?</label>
             <div class="assistant-input"><input asp-for="Question" class="form-control" maxlength="160" placeholder="Ejemplo: pedidos rechazados de este mes" autocomplete="off" /><button class="btn btn-primary" type="submit">Preparar búsqueda</button></div>
-            <p class="form-text mt-3 mb-0">Reconoce las búsquedas guiadas de los ejemplos. Los resultados respetan los permisos de tu cuenta.</p>
+            <p class="form-text mt-3 mb-0">Las reglas de búsqueda reconocen expresiones como las de los ejemplos. Los resultados respetan los permisos de tu cuenta.</p>
         </form>
     </div></div>
     <section class="mt-4" aria-labelledby="examples-title"><h2 id="examples-title" class="h6 mb-3">Puedes empezar con…</h2><div class="assistant-examples">
@@ -21,7 +21,7 @@
     @if (Model.Intent is { } intent)
     {
         <section class="card mt-4" aria-label="Búsqueda preparada"><div class="card-body">
-            <h2 class="h5">@(intent.Area == SearchArea.Unrecognized ? "Ajustemos la consulta" : "Tu búsqueda está preparada")</h2><p class="text-muted">@intent.Message</p>
+            <h2 class="h5">@(intent.Area == SearchArea.Unrecognized ? "Consulta no reconocida" : "Filtros de búsqueda")</h2><p class="text-muted">@intent.Message</p>
             @if (Model.Destination is not null)
             {
                 <dl class="row mb-3"><dt class="col-sm-4">Sección</dt><dd class="col-sm-8">@(intent.Area switch { SearchArea.Orders => "Pedidos", SearchArea.Customers => "Clientes", _ => "Catálogo" })</dd>
@@ -34,5 +34,4 @@
             }
         </div></section>
     }
-    <div class="alert alert-info mt-4"><strong>Ayuda para encontrar y navegar.</strong><p class="mb-0">Este asistente prepara filtros mediante reglas de búsqueda. No genera respuestas con IA ni crea, modifica o envía pedidos.</p></div>
 </div>

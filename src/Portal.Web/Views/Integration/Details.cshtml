@@ -2,7 +2,6 @@
 
 @using System.Globalization
 @using Portal.Domain.Enums
-@using Portal.Infrastructure.Identity
 @using Portal.Web.Formatting
 
 @{
@@ -13,9 +12,8 @@
 
     var culture = CultureInfo.GetCultureInfo("es-PE");
 
-    bool canReviewRecovery =
-        message.Status == IntegrationStatus.DeadLetter &&
-        (User.IsInRole(AppRoles.Admin) || User.IsInRole(AppRoles.Operator));
+    bool canReviewRecovery = ViewData["CanRecover"] is true;
+    var returnUrl = ViewData["ReturnUrl"] as string;
 }
 
 <div class="container-fluid py-4">
@@ -48,6 +46,7 @@
         <div class="d-flex flex-wrap gap-2">
             <a asp-controller="Integration"
                asp-action="Details"
+               asp-route-returnUrl="@returnUrl"
                asp-route-id="@message.MessageId"
                class="btn btn-outline-primary">
                 Actualizar
@@ -57,6 +56,7 @@
             {
                 <a asp-controller="IntegrationRecovery"
                    asp-action="Index"
+                   asp-route-returnUrl="@returnUrl"
                    asp-route-id="@message.MessageId"
                    class="btn btn-warning">
                     Revisar recuperación
@@ -70,8 +70,7 @@
                 Ver pedido
             </a>
 
-            <a asp-controller="Integration"
-               asp-action="Index"
+            <a href="@returnUrl"
                class="btn btn-outline-secondary">
                 Volver
             </a>
@@ -92,14 +91,13 @@
             @if (canReviewRecovery)
             {
                 <p class="mb-0 mt-2">
-                    Utiliza “Revisar recuperación” para comprobar si este
-                    mensaje admite un nuevo ciclo de procesamiento.
+                    Revisa la causa antes de confirmar un nuevo ciclo de procesamiento.
                 </p>
             }
             else
             {
                 <p class="mb-0 mt-2">
-                    La recuperación manual requiere una cuenta de administrador u operador.
+                    @ViewData["BlockReason"]
                 </p>
             }
         </div>

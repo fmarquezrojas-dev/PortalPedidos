@@ -1,0 +1,36 @@
+{
+  "review": 22,
+  "pages": [
+    20,
+    2
+  ],
+  "returnedToPage": 2,
+  "thresholdSeconds": 300,
+  "thresholdOrder": 1032,
+  "scheduledPeru": "2026-11-25T20:33:00.543000",
+  "expiredLeaseOrder": 1028,
+  "activeLeaseOrder": 1029,
+  "readOnlyEffects": {
+    "messages": 32,
+    "version": 2364,
+    "attempts": 8,
+    "receipts": 3,
+    "reserved": "13.0000"
+  },
+  "catalogStates": [
+    "firstSyncPending",
+    "fresh",
+    "stale",
+    "futureDate"
+  ],
+  "failedReadStatus": 503,
+  "concurrency": [
+    "Submit",
+    "Lookup",
+    "Recovery",
+    "Lookup"
+  ],
+  "staleConfirmation": 409,
+  "sellerAccess": 403,
+  "operatorAccess": 200
+}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Portal.Application.DTOs.Catalog;
 using Portal.Application.Interfaces.Catalog;
 using Portal.Infrastructure.Persistence;
+using Portal.Infrastructure.Queries.Common;
 
 namespace Portal.Infrastructure.Queries.Catalog;
 
@@ -41,9 +42,7 @@ public sealed class ProductCatalogQuery : IProductCatalogQuery
 
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
         {
-            productsQuery = productsQuery.Where(product =>
-                product.ExternalCode.Contains(normalizedSearch) ||
-                product.Name.Contains(normalizedSearch));
+            productsQuery = productsQuery.Matching(normalizedSearch);
         }
 
         int totalCount = await productsQuery.CountAsync(

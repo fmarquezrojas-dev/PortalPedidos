@@ -7,7 +7,7 @@ namespace Portal.Application.Interfaces.Customers;
 
 public interface ICustomerEligibilityService
 {
-    CustomerEligibilityResultDto Evaluate(Customer? customer);
+    Task<CustomerEligibilityResultDto> EvaluateAsync(Customer? customer, CancellationToken cancellationToken);
 
     Expression<Func<Customer, bool>> GetEligibleCustomerPredicate();
 }

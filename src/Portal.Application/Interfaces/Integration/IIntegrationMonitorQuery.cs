@@ -8,6 +8,9 @@ namespace Portal.Application.Interfaces.Integration;
 
 public interface IIntegrationMonitorQuery
 {
+    Task<OperationalAttention> GetAttentionAsync(long? orderNumber, AttentionCategory? category,
+        int pageNumber, CancellationToken cancellationToken = default);
+
     Task<IntegrationMonitorPageDto> SearchAsync(
         long? orderNumber,
         IntegrationStatus? status,

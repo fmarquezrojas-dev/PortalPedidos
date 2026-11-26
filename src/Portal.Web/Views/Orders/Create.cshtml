@@ -2,7 +2,7 @@
 
 @using System.Globalization
 @using System.Linq
-@using Microsoft.AspNetCore.Mvc.Rendering
+@using Portal.Application.DTOs.Orders
 
 @{
     var culture = CultureInfo.GetCultureInfo("es-PE");
@@ -29,18 +29,9 @@
         ? Model.SavedSubtotal.Value.ToString("N2", culture)
         : "Sin registro";
 
-    // La lista ya está filtrada por la regla de elegibilidad del servicio.
-    // Este aviso describe la carga del formulario; no sustituye la validación al guardar.
-    bool selectedCustomerUnavailable =
-        Model.CustomerId.HasValue &&
-        Model.CustomerId.Value != Guid.Empty &&
-        !Model.FormData.Customers.Any(
-            customer => customer.Id == Model.CustomerId.Value);
-
-    bool catalogReady =
-        Model.FormData.CatalogVersion > 0 &&
-        Model.FormData.Customers.Count > 0 &&
-        Model.FormData.Products.Count > 0;
+    var selectedProducts = Model.FormData.Products.ToDictionary(p => p.Id);
+    var customer = Model.FormData.Customer;
+    bool selectedCustomerUnavailable = Model.CustomerId.HasValue && !Model.FormData.CustomerIsEligible;
 }
 
 <div class="container-fluid py-4">
@@ -83,312 +74,294 @@
         </div>
     }
 
-    @if (!catalogReady)
+    @if (Model.FormData.CatalogVersion <= 0)
     {
+        <div class="alert alert-warning" role="alert">Para guardar necesitas un catálogo sincronizado.</div>
+    }
+    <noscript><div class="alert alert-info">Activa JavaScript para buscar clientes y productos, agregar líneas y calcular el importe. El servidor volverá a validar los datos al guardar.</div></noscript>
+    <form id="create-order-form"
+          data-customer-url="@Url.Action("SearchCustomers")"
+          data-product-url="@Url.Action("SearchProducts")"
+          asp-controller="Orders"
+          asp-action="@formAction"
+          asp-route-id="@orderRouteId"
+          asp-antiforgery="true"
+          method="post">
+
+        <input asp-for="DraftId" type="hidden" />
+        <input asp-for="CatalogVersion" type="hidden" />
+        <input asp-for="RowVersion" type="hidden" />
+
         <div asp-validation-summary="All"
              class="text-danger mb-3"
              role="alert"></div>
-        <div class="alert alert-warning" role="alert">
-            Para guardar necesitas un catálogo sincronizado con clientes
-            habilitados para pedidos y productos activos.
-        </div>
 
-        <a asp-controller="Orders"
-           asp-action="@returnAction"
-           asp-route-id="@orderRouteId"
-           class="btn btn-outline-secondary">
-            @(Model.IsEdit ? "Volver al pedido" : "Volver a pedidos")
-        </a>
-    }
-    else
-    {
-        <noscript><div class="alert alert-info">Activa JavaScript para agregar líneas y ver el cálculo referencial del importe. El servidor volverá a validar los datos al guardar.</div></noscript>
-        <form id="create-order-form"
-              asp-controller="Orders"
-              asp-action="@formAction"
-              asp-route-id="@orderRouteId"
-              asp-antiforgery="true"
-              method="post">
+        @if (Model.IsEdit)
+        {
+            <div class="alert alert-info">
+                <p class="mb-2">
+                    Importe guardado antes de esta edición:
+                    <strong>PEN @savedSubtotal</strong>
+                </p>
 
-            <input asp-for="DraftId" type="hidden" />
-            <input asp-for="CatalogVersion" type="hidden" />
-            <input asp-for="RowVersion" type="hidden" />
+                <p class="mb-2">
+                    El formulario muestra los precios actuales
+                    del catálogo. Al guardar, estos precios se
+                    aplicarán a las líneas del borrador.
+                </p>
 
-            <div asp-validation-summary="All"
-                 class="text-danger mb-3"
-                 role="alert"></div>
-
-            @if (Model.IsEdit)
-            {
-                <div class="alert alert-info">
-                    <p class="mb-2">
-                        Importe guardado antes de esta edición:
-                        <strong>PEN @savedSubtotal</strong>
-                    </p>
-
-                    <p class="mb-2">
-                        El formulario muestra los precios actuales
-                        del catálogo. Al guardar, estos precios se
-                        aplicarán a las líneas del borrador.
-                    </p>
-
-                    <a asp-controller="Orders"
-                       asp-action="Edit"
-                       asp-route-id="@Model.DraftId"
-                       class="alert-link">
-                        Recargar pedido y descartar cambios sin guardar
-                    </a>
-                </div>
-            }
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-body">
-                    <h2 class="order-step-heading"><span class="step-number">01</span> Cliente y fecha solicitada</h2>
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label asp-for="CustomerId"
-                                   class="form-label"></label>
-
-                            <select asp-for="CustomerId"
-                                    class="form-select"
-                                    aria-describedby="customer-eligibility-help"
-                                    required
-                                    asp-items="@(Model.FormData.Customers.Select(
-                                        customer => new SelectListItem
-                                        {
-                                            Value = customer.Id.ToString(),
-                                            Text = customer.Code + " - " + customer.Name
-                                        }))">
-                                <option value="">
-                                    Selecciona un cliente
-                                </option>
-                            </select>
-
-                            <span asp-validation-for="CustomerId"
-                                  class="text-danger"></span>
-
-                            <p id="customer-eligibility-help"
-                               class="form-text mb-0">
-                                El selector muestra los clientes habilitados
-                                al cargar el formulario. Su disponibilidad
-                                se volverá a comprobar al guardar.
-                            </p>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label asp-for="RequestedDate"
-                                   class="form-label"></label>
-
-                            <input asp-for="RequestedDate"
-                                   asp-format="{0:yyyy-MM-dd}"
-                                   type="date"
-                                   min="@minimumDate"
-                                   class="form-control"
-                                   required />
-
-                            <span asp-validation-for="RequestedDate"
-                                  class="text-danger"></span>
-                        </div>
-                    </div>
-                </div>
+                <a asp-controller="Orders"
+                   asp-action="Edit"
+                   asp-route-id="@Model.DraftId"
+                   class="alert-link">
+                    Recargar pedido y descartar cambios sin guardar
+                </a>
             </div>
+        }
 
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white d-flex flex-wrap
-                            justify-content-between align-items-center gap-2">
-                    <h2 class="order-step-heading mb-0"><span class="step-number">02</span> Productos del pedido</h2>
-
-                    <button id="add-order-line"
-                            type="button"
-                            class="btn btn-sm btn-outline-primary">
-                        Agregar producto
-                    </button>
-                </div>
-
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <span id="order-line-count">@Model.Lines.Count</span> de 100 líneas. Agrega productos distintos.
-                        Las cantidades deben ser enteras entre 1 y 9999.
-                    </p>
-
-                    <div class="table-responsive">
-                        <table class="table align-middle">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Producto</th>
-
-                                    <th scope="col" style="width: 130px;">
-                                        Cantidad
-                                    </th>
-
-                                    <th scope="col" class="text-end">
-                                        Precio PEN
-                                    </th>
-
-                                    <th scope="col" class="text-end">
-                                        Importe PEN
-                                    </th>
-
-                                    <th scope="col" class="text-end">
-                                        Acción
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody id="order-lines">
-                                @for (int i = 0; i < Model.Lines.Count; i++)
-                                {
-                                    <tr class="order-line">
-                                        <td>
-                                            <select asp-for="Lines[i].ProductId"
-                                                    class="form-select line-product"
-                                                    aria-label="Producto"
-                                                    required>
-                                                <option value="">
-                                                    Selecciona un producto
-                                                </option>
-
-                                                @foreach (var product in Model.FormData.Products)
-                                                {
-                                                    <option value="@product.Id"
-                                                            data-price="@product.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture)">
-                                                        @product.Code - @product.Name
-                                                    </option>
-                                                }
-                                            </select>
-                                        </td>
-
-                                        <td>
-                                            <input asp-for="Lines[i].Quantity"
-                                                   type="number"
-                                                   min="1"
-                                                   max="9999"
-                                                   step="1"
-                                                   required
-                                                   aria-label="Cantidad"
-                                                   class="form-control line-quantity" />
-                                        </td>
-
-                                        <td class="text-end text-nowrap line-price">
-                                            —
-                                        </td>
-
-                                        <td class="text-end text-nowrap line-amount">
-                                            —
-                                        </td>
-
-                                        <td class="text-end">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-danger remove-line">
-                                                Quitar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="order-step-heading"><span class="step-number">01</span> Cliente y fecha solicitada</h2>
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label for="customer-search" class="form-label">Buscar cliente por código o nombre</label>
+                        <input id="customer-search" class="form-control capture-search" type="search"
+                               maxlength="100" autocomplete="off" aria-controls="CustomerId" aria-describedby="customer-search-status" />
+                        <label asp-for="CustomerId" class="visually-hidden">Cliente del pedido</label>
+                        <select asp-for="CustomerId" class="form-select mt-1" required
+                                aria-describedby="customer-search-status">
+                            <option value="">Selecciona un cliente</option>
+                            @if (Model.CustomerId is Guid customerId)
+                            {
+                                <option value="@customerId" data-unavailable="@(!Model.FormData.CustomerIsEligible ? "true" : null)">@(customer is null ? customerId.ToString() : $"{customer.Code} - {customer.Name}")</option>
+                            }
+                        </select>
+                        <small id="customer-search-status" class="form-text search-status" role="status"></small>
+                        <span asp-validation-for="CustomerId" class="text-danger"></span>
                     </div>
 
-                    <div class="order-total mt-3">
-                        <div class="text-muted">
-                            Importe referencial sin impuestos
-                        </div>
+                    <div class="col-md-4">
+                        <label asp-for="RequestedDate"
+                               class="form-label"></label>
 
-                        <div class="h4">
-                            S/ <span id="order-subtotal">0.00</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        <input asp-for="RequestedDate"
+                               asp-format="{0:yyyy-MM-dd}"
+                               type="date"
+                               min="@minimumDate"
+                               class="form-control"
+                               required />
 
-            @if (Model.IsEdit)
-            {
-                <div class="form-check mb-3">
-                    <input asp-for="AcceptCurrentPrices"
-                           class="form-check-input"
-                           required />
-
-                    <label asp-for="AcceptCurrentPrices"
-                           class="form-check-label">
-                        He revisado los precios actuales y el importe.
-                    </label>
-
-                    <div>
-                        <span asp-validation-for="AcceptCurrentPrices"
+                        <span asp-validation-for="RequestedDate"
                               class="text-danger"></span>
                     </div>
                 </div>
-            }
-
-            <p class="small text-muted">
-                Guardar el borrador no reserva existencias ni envía
-                el pedido al ERP.
-            </p>
-
-            <div class="order-actions d-flex flex-wrap gap-2">
-                <button id="save-draft"
-                        type="submit"
-                        class="btn btn-primary">
-                    Guardar borrador
-                </button>
-
-                <a asp-controller="Orders"
-                   asp-action="@returnAction"
-                   asp-route-id="@orderRouteId"
-                   class="btn btn-outline-secondary">
-                    Salir sin guardar
-                </a>
             </div>
-        </form>
+        </div>
 
-        <template id="order-line-template">
-            <tr class="order-line">
-                <td>
-                    <select class="form-select line-product"
-                            aria-label="Producto"
-                            required>
-                        <option value="">
-                            Selecciona un producto
-                        </option>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex flex-wrap
+                        justify-content-between align-items-center gap-2">
+                <h2 class="order-step-heading mb-0"><span class="step-number">02</span> Productos del pedido</h2>
 
-                        @foreach (var product in Model.FormData.Products)
-                        {
-                            <option value="@product.Id"
-                                    data-price="@product.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture)">
-                                @product.Code - @product.Name
-                            </option>
-                        }
-                    </select>
-                </td>
+                <button id="add-order-line"
+                        type="button"
+                        class="btn btn-sm btn-outline-primary">
+                    Agregar producto
+                </button>
+            </div>
 
-                <td>
-                    <input type="number"
-                           value="1"
-                           min="1"
-                           max="9999"
-                           step="1"
-                           required
-                           aria-label="Cantidad"
-                           class="form-control line-quantity" />
-                </td>
+            <div class="card-body">
+                <p class="small text-muted">
+                    <span id="order-line-count">@Model.Lines.Count</span> de 100 líneas. Agrega productos distintos.
+                    Las cantidades deben ser enteras entre 1 y 9999.
+                </p>
 
-                <td class="text-end text-nowrap line-price">
-                    —
-                </td>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Producto</th>
 
-                <td class="text-end text-nowrap line-amount">
-                    —
-                </td>
+                                <th scope="col" style="width: 130px;">
+                                    Cantidad
+                                </th>
 
-                <td class="text-end">
-                    <button type="button"
-                            class="btn btn-sm btn-outline-danger remove-line">
-                        Quitar
-                    </button>
-                </td>
-            </tr>
-        </template>
-    }
+                                <th scope="col" class="text-end">
+                                    Precio PEN
+                                </th>
+
+                                <th scope="col" class="text-end">
+                                    Importe PEN
+                                </th>
+
+                                <th scope="col" class="text-end">
+                                    Acción
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="order-lines">
+                            @for (int i = 0; i < Model.Lines.Count; i++)
+                            {
+                                <tr class="order-line">
+                                    <td>
+                                        @{
+                                            var id = Model.Lines[i].ProductId;
+                                            ProductOptionDto? product = id.HasValue ? selectedProducts.GetValueOrDefault(id.Value) : null;
+                                            var price = product?.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture);
+                                        }
+                                        <input type="search" class="form-control capture-search" maxlength="100"
+                                               autocomplete="off" placeholder="Código o nombre" aria-label="Buscar producto de la línea @(i + 1)" />
+                                        <select asp-for="Lines[i].ProductId" class="form-select mt-1 line-product" aria-label="Producto" required>
+                                            <option value="">Selecciona un producto</option>
+                                            @if (id.HasValue)
+                                            {
+                                                <option value="@id" data-price="@price" data-unavailable="@(product?.IsActive == true ? null : "true")">@(product is null ? id.ToString() : $"{product.Code} - {product.Name}")</option>
+                                            }
+                                        </select>
+                                        <small class="form-text search-status" role="status"></small>
+                                        <input type="hidden" class="quoted-price" name="Lines[@i].QuotedPrice" value="@price" />
+                                        @if (id.HasValue)
+                                        {
+                                            <div class="small text-warning-emphasis product-review" data-product-id="@id">
+                                                @if (product?.IsActive != true)
+                                                {
+                                                    <span>Producto no disponible. Sustitúyelo o quita esta línea.</span>
+                                                }
+                                                @if (Model.SavedPrices.TryGetValue(id.Value, out var savedPrice) && savedPrice != product?.UnitPrice)
+                                                {
+                                                    <span>Precio guardado PEN @savedPrice.ToString("0.0000", culture).</span>
+                                                }
+                                                @if (decimal.TryParse(Model.Lines[i].QuotedPrice, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var quoted) && quoted != product?.UnitPrice)
+                                                {
+                                                    <span>Precio mostrado al enviar el formulario PEN @quoted.ToString("0.0000", culture).</span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
+
+                                    <td>
+                                        <input asp-for="Lines[i].Quantity"
+                                               type="number"
+                                               min="1"
+                                               max="9999"
+                                               step="1"
+                                               required
+                                               aria-label="Cantidad"
+                                               class="form-control line-quantity" />
+                                    </td>
+
+                                    <td class="text-end text-nowrap line-price">
+                                        —
+                                    </td>
+
+                                    <td class="text-end text-nowrap line-amount">
+                                        —
+                                    </td>
+
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger remove-line">
+                                            Quitar
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="order-total mt-3">
+                    <div class="text-muted">
+                        Importe referencial sin impuestos
+                    </div>
+
+                    <div class="h4">
+                        S/ <span id="order-subtotal">0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.IsEdit)
+        {
+            <div class="form-check mb-3">
+                <input asp-for="AcceptCurrentPrices"
+                       class="form-check-input"
+                       required />
+
+                <label asp-for="AcceptCurrentPrices"
+                       class="form-check-label">
+                    He revisado los precios actuales y el importe.
+                </label>
+
+                <div>
+                    <span asp-validation-for="AcceptCurrentPrices"
+                          class="text-danger"></span>
+                </div>
+            </div>
+        }
+
+        <p class="small text-muted">
+            Guardar el borrador no reserva existencias ni envía
+            el pedido al ERP.
+        </p>
+
+        <div class="order-actions d-flex flex-wrap gap-2">
+            <button id="save-draft"
+                    type="submit"
+                    class="btn btn-primary">
+                Guardar borrador
+            </button>
+
+            <a asp-controller="Orders"
+               asp-action="@returnAction"
+               asp-route-id="@orderRouteId"
+               class="btn btn-outline-secondary">
+                Salir sin guardar
+            </a>
+        </div>
+    </form>
+
+    <template id="order-line-template">
+        <tr class="order-line">
+            <td>
+                <input type="search" class="form-control capture-search" maxlength="100"
+                       autocomplete="off" placeholder="Código o nombre" aria-label="Buscar producto" />
+                <select class="form-select mt-1 line-product" aria-label="Producto" required>
+                    <option value="">Selecciona un producto</option>
+                </select>
+                <small class="form-text search-status" role="status"></small>
+                <input type="hidden" class="quoted-price" />
+            </td>
+
+            <td>
+                <input type="number"
+                       value="1"
+                       min="1"
+                       max="9999"
+                       step="1"
+                       required
+                       aria-label="Cantidad"
+                       class="form-control line-quantity" />
+            </td>
+
+            <td class="text-end text-nowrap line-price">
+                —
+            </td>
+
+            <td class="text-end text-nowrap line-amount">
+                —
+            </td>
+
+            <td class="text-end">
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger remove-line">
+                    Quitar
+                </button>
+            </td>
+        </tr>
+    </template>
 </div>
 
 @section Scripts
